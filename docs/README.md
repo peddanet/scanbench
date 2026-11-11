@@ -39,6 +39,7 @@ docs/
   concept/
     README.md                   lead: concept, revisions, roadmap, decisions
     scanbench-concept.md / .pdf concept revision 1
+    settings-and-sessions.md    detail settings, transparency, configuration layers, sessions
     img/, diagrams/             rendered diagrams and their Mermaid sources
 ~~~
 

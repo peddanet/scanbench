@@ -6,6 +6,18 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-12
+
+### Documentation
+
+- README with a "See it in action" section: screenshots of the real program
+  (photo detection with a turned print, the saved photos, documents tab,
+  print dialog), made with simulated scanner input from copyright-free sample
+  photos; sources and licences in `docs/user/img/samples/SOURCES.md`.
+- `tools/screenshots.py` regenerates all screenshots.
+- Concept "Detailed settings, transparency and sessions"
+  (`docs/concept/settings-and-sessions.md`).
+
 ## [0.2.1] - 2026-11-11
 
 ### Added
