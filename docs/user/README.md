@@ -9,7 +9,8 @@ first time.
 |---|---|---|
 | 1 | [Installation](installation.md) | system packages, installing a release, launcher entry, update, uninstall |
 | 2 | [Getting started](getting-started.md) | first start, commands, where scanbench keeps its files |
-| 3 | [Troubleshooting](troubleshooting.md) | `scanbench doctor`, scanner not found, missing launcher icon |
+| 3 | [Updating](updating.md) | new releases, automatic switching of open windows, `scanbench update` and `scanbench publish` for the maintainer |
+| 4 | [Troubleshooting](troubleshooting.md) | `scanbench doctor`, scanner not found, missing launcher icon |
 
 Planned pages (they appear with the milestones of the
 [roadmap](../concept/README.md#roadmap)):

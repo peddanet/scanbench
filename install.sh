@@ -3,6 +3,9 @@
 #
 # Usage: bash install.sh [vX.Y.Z]      (without argument: newest release tag)
 #
+# Layout: $SCANBENCH_HOME/venvs/X.Y.Z per release, $SCANBENCH_HOME/venv as a
+# link to the active one; the active and the previous release are kept.
+#
 # Environment (all optional):
 #   SCANBENCH_HOME  root of the installation; default $XDG_DATA_HOME/scanbench
 #                   (~/.local/share/scanbench). Example: ~/scripts/scanbench.d
@@ -35,22 +38,39 @@ if [[ -z "$TAG" ]]; then
         | sort -V | tail -n 1)
   [[ -n "$TAG" ]] || die "no release tag found in $REPO"
 fi
-echo "Installing scanbench $TAG into $ROOT/venv"
+echo "Installing scanbench $TAG into $ROOT/venvs/${TAG#v}"
 
-# 2. Fresh venv per installation, so an old release leaves nothing behind.
-python3 -m venv --clear "$ROOT/venv"
-"$ROOT/venv/bin/pip" install --quiet --upgrade pip
-"$ROOT/venv/bin/pip" install --quiet "git+$REPO@$TAG"
+# 2. Every release gets its own venv in venvs/X.Y.Z. A running scanbench keeps
+#    using its own venv; nothing it has loaded is touched by the installation.
+VERSION="${TAG#v}"
+TARGET="$ROOT/venvs/$VERSION"
+[[ -L "$ROOT/venv" || ! -e "$ROOT/venv" ]] \
+  || die "$ROOT/venv is a directory from an older layout; remove it first"
+python3 -m venv --clear "$TARGET"
+"$TARGET/bin/pip" install --quiet --upgrade pip
+"$TARGET/bin/pip" install --quiet "git+$REPO@$TAG"
 
 # 3. The installed program must report the tag's version.
-REPORTED=$("$ROOT/venv/bin/scanbench" --version)
-[[ "$REPORTED" == "scanbench ${TAG#v}" ]] \
+REPORTED=$("$TARGET/bin/scanbench" --version)
+[[ "$REPORTED" == "scanbench $VERSION" ]] \
   || die "version mismatch: tag $TAG, program reports '$REPORTED'"
 
-# 4. Launcher link and desktop entry (desktop file and icon below ~/.local/share).
+# 4. Switch the active release atomically: a new link is renamed over the
+#    old one (mv -T), so there is no moment without a valid "venv" link.
+ln -sfn "venvs/$VERSION" "$ROOT/venv.new"
+mv -T "$ROOT/venv.new" "$ROOT/venv"
+
+# 5. Keep the active and the previous release, remove older ones.
+mapfile -t OLD < <(ls -1 "$ROOT/venvs" | sort -V | head -n -2)
+for old in "${OLD[@]}"; do
+  [[ "$old" == "$VERSION" ]] || rm -rf "${ROOT:?}/venvs/$old"
+done
+
+# 6. Launcher link and desktop entry through the stable link, so both stay
+#    valid across releases (desktop file and icon below ~/.local/share).
 mkdir -p "$BIN"
 ln -sfn "$ROOT/venv/bin/scanbench" "$BIN/scanbench"
-"$ROOT/venv/bin/scanbench" install-desktop
+"$ROOT/venv/bin/scanbench" install-desktop --exec "$ROOT/venv/bin/scanbench"
 echo "Done: $REPORTED, launcher $BIN/scanbench"
 case ":$PATH:" in
   *":$BIN:"*) ;;

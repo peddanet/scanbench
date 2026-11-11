@@ -25,6 +25,13 @@ The first tested device is a Canon PIXMA MX925 over the network
 (sane-airscan); the scanner access is encapsulated, so other SANE devices can
 be added through device profiles.
 
+## Updates
+
+Every release is installed into its own environment; an open scanbench window
+switches to a newly installed release as soon as it is idle. For the
+maintainer, `scanbench update` turns delivered patches into releases with all
+quality gates and CI runs: see [Updating](docs/user/updating.md).
+
 ## Quick start
 
 ~~~bash

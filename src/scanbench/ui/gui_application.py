@@ -1,25 +1,41 @@
 """Start the Qt application with the identity the desktop expects."""
 
+import sys
 from importlib import resources
+from pathlib import Path
 
+from PySide6.QtCore import QProcess
 from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
 from PySide6.QtWidgets import QApplication
 
+from scanbench import __version__
 from scanbench.app_info import APP_ID, APP_NAME
+from scanbench.domain.version import Version
+from scanbench.infrastructure.app_paths import AppPaths
 from scanbench.ui.main_window import MainWindow
+from scanbench.ui.release_watcher import ReleaseWatcher
+from scanbench.ui.update_dialog import UpdateDialog
 
 
 class GuiApplication:
-    """Configure the Qt application and run the main window."""
+    """Configure the Qt application, wire window, update dialog and watcher."""
 
-    def __init__(self, version_text: str) -> None:
-        """Store the version text for the window.
+    def __init__(self, version_text: str, paths: AppPaths, is_release: bool) -> None:
+        """Store what the window needs.
 
         Args:
             version_text: Version shown in the status bar.
+            paths: Resolver of the installation directories.
+            is_release: False when running from a source checkout; then the
+                watcher is off, so a development window never switches into
+                the installed release.
         """
         self._version_text = version_text
+        self._paths = paths
+        self._is_release = is_release
         self.window: MainWindow | None = None
+        self.dialog: UpdateDialog | None = None
+        self.watcher: ReleaseWatcher | None = None
 
     @staticmethod
     def configure(app: QGuiApplication) -> None:
@@ -38,13 +54,67 @@ class GuiApplication:
         pixmap.loadFromData(svg.read_bytes(), "SVG")
         app.setWindowIcon(QIcon(pixmap))
 
+    def open_update(self) -> UpdateDialog:
+        """Show the update dialog and start ``scanbench update --yes``.
+
+        Returns:
+            The dialog.
+        """
+        program = str(Path(sys.prefix) / "bin" / "scanbench")
+        self.dialog = UpdateDialog(program, ["update", "--yes"], self.window)
+        self.dialog.succeeded.connect(self._after_update)
+        self.dialog.show()
+        self.dialog.start()
+        return self.dialog
+
+    def _after_update(self) -> None:
+        """Switch automatically if the update installed a newer release."""
+        installed = self.watcher.installed() if self.watcher else None
+        if self.window is not None and installed is not None \
+                and installed > Version.parse(__version__):
+            self.window.offer_switch(str(installed), automatic=True)
+
+    def _on_new_release(self, version: str) -> None:
+        """Offer the switch to a release installed outside this window.
+
+        While the update dialog of this window is still running, the dialog
+        takes care of the switch itself.
+
+        Args:
+            version: The installed release.
+        """
+        running = self.dialog is not None and \
+            self.dialog.process.state() != QProcess.ProcessState.NotRunning
+        if self.window is not None and not running:
+            self.window.offer_switch(version, automatic=False)
+
+    def restart(self, _version: str) -> bool:
+        """Start the active release and close this window.
+
+        The released version is shown by the new window itself.
+
+        Returns:
+            True if the new process was started.
+        """
+        launcher = self._paths.release.stable_launcher
+        started = launcher.exists() and QProcess.startDetached(str(launcher), [])[0]
+        if started:
+            QApplication.quit()
+        return bool(started)
+
     def show(self) -> MainWindow:
-        """Create and show the main window.
+        """Create, wire and show the main window.
 
         Returns:
             The shown window.
         """
         self.window = MainWindow(self._version_text)
+        self.window.update_requested.connect(self.open_update)
+        self.window.switch_requested.connect(self.restart)
+        if self._is_release:
+            self.watcher = ReleaseWatcher(self._paths.release.venv_link, Version.parse(__version__),
+                                          parent=self.window)
+            self.watcher.new_release.connect(self._on_new_release)
         self.window.show()
         return self.window
 
@@ -52,7 +122,7 @@ class GuiApplication:
         """Run the event loop until the window is closed.
 
         Args:
-            argv: Command line handed to Qt (Qt options such as ``-platform``).
+            argv: Command line handed to Qt.
 
         Returns:
             Exit status of the event loop.

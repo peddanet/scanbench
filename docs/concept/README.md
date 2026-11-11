@@ -21,7 +21,7 @@ Lead document of the design documents.
 
 | Milestone | Content | State |
 |---|---|---|
-| M0 | repository skeleton, gates, staged runner, CI, desktop entry, empty window | done in 0.1.0 |
+| M0 | repository skeleton, gates, staged runner, CI, desktop entry, empty window; update and publish workflows with live release switching | done in 0.1.0 |
 | M1 | scanner adapter, device detection, device profiles, CLI for the seven scan cases | planned |
 | M2 | document GUI, duplex pipeline, calibration wizard, PDF shrinking | planned |
 | M3 | photo-album mode: detection, review with undo, encoders, album loop | planned |
@@ -50,3 +50,4 @@ unchanged as the record of the design decision.
 | pylint defaults "from memory" | defaults confirmed with `pylint --generate-toml-config`, pylint 4.1.3 | open point of the concept closed |
 | package name `sane-airscan` to verify | confirmed for Ubuntu 24.04 (noble, main) on Launchpad | open point of the concept closed |
 | dependency `PySide6` | `PySide6-Essentials` | contains QtCore, QtGui, QtWidgets; the add-on modules are not needed |
+| not in revision 1 | `scanbench update`, `scanbench publish`, versioned venvs and switching of open windows | requested after revision 1; design in [architecture](../developer/architecture.md#update-and-live-switch) |

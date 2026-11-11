@@ -23,6 +23,7 @@ docs/
     README.md                   lead: user documentation
     installation.md             system packages, install.sh, desktop entry, uninstall
     getting-started.md          first start, commands, directories
+    updating.md                 new releases, live switching, update and publish
     troubleshooting.md          scanbench doctor, scanner not found, desktop icon
   developer/
     README.md                   lead: developer documentation
