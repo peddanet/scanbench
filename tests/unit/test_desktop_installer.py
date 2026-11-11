@@ -58,5 +58,6 @@ def test_exec_with_home_and_spaces(tmp_path: Path) -> None:
     Args:
         tmp_path: Temporary directory of the test.
     """
-    installer = DesktopInstaller(AppPaths({}, tmp_path), Path("/x/scanbench"), "/my home")
-    assert installer.exec_value() == 'env "SCANBENCH_HOME=/my home" /x/scanbench'
+    env = {"SCANBENCH_HOME": "/my home", "SCANBENCH_BIN": "/b", "EMPTY": ""}
+    installer = DesktopInstaller(AppPaths({}, tmp_path), Path("/x/scanbench"), env)
+    assert installer.exec_value() == 'env SCANBENCH_BIN=/b "SCANBENCH_HOME=/my home" /x/scanbench'

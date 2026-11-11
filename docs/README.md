@@ -24,7 +24,11 @@ docs/
     installation.md             system packages, install.sh, desktop entry, uninstall
     getting-started.md          first start, commands, directories
     updating.md                 new releases, live switching, update and publish
-    troubleshooting.md          scanbench doctor, scanner not found, desktop icon
+    documents.md                scanning documents, duplex, PDF sizes
+    photo-album.md              scanning photo albums, frames, confirmation
+    printing.md                 CUPS printers and driver options
+    troubleshooting.md          scanbench doctor, scanner not found, desktop icon, printing
+    img/                        screenshots
   developer/
     README.md                   lead: developer documentation
     architecture.md             layers, modules, patterns (Mermaid diagrams)

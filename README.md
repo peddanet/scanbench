@@ -2,22 +2,27 @@
 
 Document and photo-album scanning for Linux, built on SANE.
 
-> **Status: milestone M0 (version 0.1.0).** The repository skeleton, the
-> quality gates, the CI and the desktop integration are in place; the window
-> opens, but scanning arrives with milestones M1 to M3. See the
+> **Status: version 0.2.0, first testable draft.** Documents (simplex,
+> duplex, PDF in five sizes), photo albums (detection, editing,
+> confirmation) and printing through CUPS work; device profiles, the
+> calibration wizard and album export follow. See the
 > [roadmap](docs/concept/README.md#roadmap).
 
-![scanbench main window, milestone M0](docs/user/img/main-window-m0.png)
+![Photo-album tab with four detected photos](docs/user/img/photo-album-tab.png)
 
-## What scanbench will do
+## What scanbench does
 
-* **Documents:** A4, A5 and A6 from the flatbed or the document feeder,
-  duplex for A4, 150/300/600 dpi, colour or grey, as PDF; back pages are
-  rotated and ordered automatically, oversized PDFs can be shrunk.
-* **Photo albums:** put several photos on the glass, scan once at 300 or
-  600 dpi; scanbench finds each photo, straightens and crops it and saves it
-  as lossless PNG or as JPEG into one album folder, batch after batch. The
-  finished album can be packed as an archive or uploaded with rclone.
+* **Documents:** A4, A5, A6 and Letter from the flatbed or the document
+  feeder, one- or two-sided (also manual duplex), colour, grey or black and
+  white; pages can be turned, reordered and deleted, then saved as PDF:
+  lossless or reduced with Ghostscript (screen, e-book, printer, prepress).
+* **Photo albums:** put several photos or postcards on the glass, scan the
+  full A4 frame once; scanbench finds each photo (also with grey borders or
+  turned by 90 degrees), you check and correct the frames, confirm, and every
+  photo is straightened, cropped and saved as PNG or JPEG into the album
+  folder, page after page. Export as archive or with rclone follows.
+* **Printing:** every CUPS printer with its driver options, e.g. photo tray,
+  cassette or CD/DVD tray.
 * **Any freedesktop desktop:** GNOME, KDE Plasma, COSMIC and others, on
   Wayland and X11.
 
@@ -35,7 +40,7 @@ quality gates and CI runs: see [Updating](docs/user/updating.md).
 ## Quick start
 
 ~~~bash
-sudo apt install sane-utils sane-airscan
+sudo apt install sane-utils sane-airscan ghostscript cups-client
 curl -fsSLO https://raw.githubusercontent.com/peddanet/scanbench/main/install.sh
 bash install.sh
 ~~~
