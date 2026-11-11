@@ -62,7 +62,7 @@ def test_switch_waits_while_busy(qtbot: QtBot) -> None:
     window.switch_requested.connect(requested.append)
     window.set_busy(True)
     window.offer_switch("2.0.0", automatic=True)
-    assert not requested and "after the current job" in window.statusBar().currentMessage()
+    assert not requested and "saved or discarded" in window.statusBar().currentMessage()
     window.set_busy(False)
     assert requested == ["2.0.0"]
     window.offer_switch("3.0.0", automatic=False)
@@ -141,13 +141,13 @@ def test_configure_sets_identity(qapp: QApplication) -> None:
     assert not qapp.windowIcon().isNull()
 
 
-@pytest.mark.usefixtures("qapp")
-def test_release_window_switches_after_update(tmp_path: Path,
+def test_release_window_switches_after_update(tmp_path: Path, qtbot: QtBot,
                                               monkeypatch: pytest.MonkeyPatch) -> None:
     """A release window watches, offers switches and restarts into the new release.
 
     Args:
         tmp_path: Temporary directory of the test.
+        qtbot: Waits for the initial scanner search.
         monkeypatch: Replaces process start, quit and the dialog start.
     """
     paths = AppPaths({"SCANBENCH_HOME": str(tmp_path)}, tmp_path)
@@ -172,6 +172,10 @@ def test_release_window_switches_after_update(tmp_path: Path,
     monkeypatch.setattr(UpdateDialog, "start", lambda self: None)
     gui = GuiApplication("1.0.0", paths, is_release=True)
     window = gui.show()
+    assert gui.workbench is not None
+    runner = gui.workbench.runner
+    # The search may reach real network scanners on a developer machine.
+    qtbot.waitUntil(lambda: not runner.busy() and not window.is_busy(), timeout=60000)
     window._confirm = lambda _w, _v: True  # pylint: disable=protected-access
     assert gui.restart("x") is False
     dialog = gui.open_update()
@@ -183,6 +187,7 @@ def test_release_window_switches_after_update(tmp_path: Path,
     dialog.succeeded.emit()
     assert len(started) == 2
     window.close()
+    gui.close()
 
 
 @pytest.mark.usefixtures("qapp")
@@ -198,6 +203,7 @@ def test_run_shows_window_and_returns_status(tmp_path: Path,
     gui = GuiApplication("1.0.0", AppPaths({}, tmp_path), is_release=False)
     assert gui.run(["scanbench"]) == 0
     assert gui.window is not None and gui.window.isVisible() and gui.watcher is None
+    assert gui.workbench is None   # closed by run()
     gui.window.close()
 
 

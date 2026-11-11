@@ -82,6 +82,21 @@ class AppPaths:
         return self._xdg("XDG_STATE_HOME", ".local/state") / APP_NAME / "logs"
 
     @property
+    def cache_dir(self) -> Path:
+        """Directory of the work files of running sessions (raw scans).
+
+        Raw scans can be large, so they go to disk and not to ``/tmp``,
+        which is a RAM file system on many distributions.
+
+        Returns:
+            The cache directory.
+        """
+        root = self._root()
+        if root is not None:
+            return root / "cache"
+        return self._xdg("XDG_CACHE_HOME", ".cache") / APP_NAME
+
+    @property
     def release_dir(self) -> Path:
         """Directory that holds the venv of the installed release.
 
