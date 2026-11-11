@@ -24,6 +24,17 @@ the tests. [coverage.py](https://coverage.readthedocs.io/en/latest/branch.html)
 without passing checks.
 [GitHub Docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)
 
+**Canny edge detector** -- classic algorithm that marks strong brightness
+changes; finds the shadow line around photos.
+[OpenCV tutorial](https://docs.opencv.org/4.x/da/d22/tutorial_py_canny.html)
+
+**CUPS** -- printing system of Linux and macOS; scanbench uses its command
+line clients `lp`, `lpstat`, `lpoptions`.
+[CUPS documentation](https://openprinting.github.io/cups/doc/options.html)
+
+**Deskew** -- turning a slightly skewed scan back to horizontal; scanbench
+rotates only, so results stay rectangles.
+
 **Desktop entry** -- `.desktop` file that registers a program with menus and
 launchers. [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
 
@@ -39,21 +50,35 @@ ends, so a crashed update leaves no stale lock. [flock(2)](https://man7.org/linu
 **gh (GitHub CLI)** -- command-line client for GitHub: pull requests, workflow
 runs, repository settings. [GitHub CLI manual](https://cli.github.com/manual/)
 
-**git-flow** -- branch model with `main`, `develop` and short-lived feature,
-release and hotfix branches.
-[V. Driessen](https://nvie.com/posts/a-successful-git-branching-model/)
+**Ghostscript** -- PostScript and PDF interpreter; its `pdfwrite` device with
+`-dPDFSETTINGS` reduces PDF files.
+[Ghostscript documentation](https://ghostscript.readthedocs.io/en/latest/VectorDevices.html)
 
 **git format-patch / git am** -- export commits as patch files / apply them as
 commits. [git-format-patch](https://git-scm.com/docs/git-format-patch)
 
+**git-flow** -- branch model with `main`, `develop` and short-lived feature,
+release and hotfix branches.
+[V. Driessen](https://nvie.com/posts/a-successful-git-branching-model/)
+
 **hicolor** -- fallback icon theme every freedesktop desktop searches.
 [Icon Theme Specification](https://specifications.freedesktop.org/icon-theme-spec/latest/)
+
+**img2pdf** -- converts images to PDF without re-encoding them.
+[img2pdf](https://gitlab.mister-muffin.de/josch/img2pdf)
+
+**InputSlot** -- PPD option for the paper source (tray, cassette, CD/DVD tray).
 
 **Keep a Changelog** -- convention for human-readable change logs.
 [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 **Lead document** -- the `README.md` of a documentation area; links every page
 of that area.
+
+**Line art** -- 1-bit black-and-white scan mode; smallest files for text.
+
+**Manual duplex** -- two-sided scanning with a one-sided feeder: front sides
+first, the turned stack second; the runs are interleaved afterwards.
 
 **Matrix (CI)** -- one job definition run once per value, here per Python version.
 [GitHub Docs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/run-job-variations)
@@ -64,13 +89,23 @@ of that area.
 **Mermaid** -- text format for diagrams; GitHub renders it in Markdown.
 [mermaid.js.org](https://mermaid.js.org/)
 
+**Minimum-area rectangle** -- smallest rotated rectangle around a set of
+points (`cv2.minAreaRect`); gives position, size and skew of a photo.
+[OpenCV](https://docs.opencv.org/4.x/d3/dc0/group__imgproc__shape.html)
+
 **mypy** -- static type checker for Python. [mypy](https://mypy.readthedocs.io/)
 
 **offscreen platform** -- Qt platform plugin that renders without a display;
 used for GUI tests. [pytest-qt troubleshooting](https://pytest-qt.readthedocs.io/en/latest/troubleshooting.html)
 
+**PDFSETTINGS** -- Ghostscript presets `/screen` (72 dpi images), `/ebook`
+(150 dpi), `/printer` and `/prepress` (300 dpi).
+
 **PEP 668** -- marks the system Python as externally managed; packages go into
 virtual environments. [PEP 668](https://peps.python.org/pep-0668/)
+
+**PPD** -- PostScript Printer Description; lists the options of a printer
+driver as shown by `lpoptions -l`.
 
 **pre-push hook** -- script git runs before a push; a non-zero exit stops the
 push. [githooks](https://git-scm.com/docs/githooks)
@@ -87,6 +122,9 @@ push. [githooks](https://git-scm.com/docs/githooks)
 
 **rclone** -- program that copies files to cloud storage. [rclone](https://rclone.org/docs/)
 
+**Release switching** -- an open scanbench window restarts into a newly
+installed release at a safe moment (no running job).
+
 **SANE** -- Scanner Access Now Easy, the scanner framework of Linux.
 [SANE project](http://www.sane-project.org/)
 
@@ -96,15 +134,15 @@ push. [githooks](https://git-scm.com/docs/githooks)
 **Semantic Versioning** -- `MAJOR.MINOR.PATCH` with defined meaning.
 [semver.org](https://semver.org/)
 
-**Release switching** -- an open scanbench window restarts into a newly
-installed release at a safe moment (no running job).
-
 **Source checkout** -- code run from a git clone instead of an installed
 release; scanbench marks it in its version text.
 
 **Symbolic link** -- file system entry that points to another path; scanbench
 switches its active release by replacing the link `venv` atomically.
 [symlink(7)](https://man7.org/linux/man-pages/man7/symlink.7.html)
+
+**Test backend (SANE)** -- virtual SANE scanner `test`; delivers test pictures
+without hardware. [sane-test(5)](https://manpages.debian.org/sane-test)
 
 **Virtual environment (venv)** -- self-contained Python directory with its own
 packages. [venv](https://docs.python.org/3/library/venv.html)
