@@ -8,6 +8,7 @@ Lead document of the design documents.
 |---|---|
 | [scanbench-concept.md](scanbench-concept.md) | concept revision 1 (source): input review, requirements, technology decisions, architecture, document and photo scanning, gates, CI, milestones, risks, glossary, sources |
 | [scanbench-concept.pdf](scanbench-concept.pdf) | the same as PDF |
+| [settings-and-sessions.md](settings-and-sessions.md) | proposal 2026-11-12: all detail options of the scanner reference, transparency (tooltips, live figures, previews), layered configuration, persistent sessions, screen layout, increments 0.3.x |
 | [diagrams/](diagrams) | Mermaid sources of all concept diagrams |
 | [img/](img) | rendered diagrams used by the concept |
 
