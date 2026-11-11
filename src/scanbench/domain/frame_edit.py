@@ -1,0 +1,150 @@
+"""Free editing of a photo frame: move, resize, rotate, describe."""
+
+import math
+from dataclasses import replace
+
+from scanbench.domain.crop_region import CropRegion
+from scanbench.domain.frame_handle import FrameHandle
+
+MIN_SIDE_MM = 5.0
+"""A frame never becomes smaller than this."""
+
+
+def to_local(region: CropRegion, x: float, y: float) -> tuple[float, float]:
+    """Convert a scan point into the frame's own axes (origin in its centre).
+
+    Args:
+        region: The frame.
+        x: Scan x in pixels.
+        y: Scan y in pixels.
+
+    Returns:
+        ``(u, v)``: u along the frame's width, v along its height.
+    """
+    rad = math.radians(region.angle)
+    dx, dy = x - region.cx, y - region.cy
+    return dx * math.cos(rad) + dy * math.sin(rad), -dx * math.sin(rad) + dy * math.cos(rad)
+
+
+def to_scan(region: CropRegion, u: float, v: float) -> tuple[float, float]:
+    """Convert a point in the frame's axes back into scan pixels.
+
+    Args:
+        region: The frame.
+        u: Offset along the width.
+        v: Offset along the height.
+
+    Returns:
+        Scan x and y.
+    """
+    rad = math.radians(region.angle)
+    return (region.cx + u * math.cos(rad) - v * math.sin(rad),
+            region.cy + u * math.sin(rad) + v * math.cos(rad))
+
+
+def handle_point(region: CropRegion, handle: FrameHandle, rotate_gap: float) -> tuple[float, float]:
+    """Return where a grip sits on the scan.
+
+    Args:
+        region: The frame.
+        handle: The grip.
+        rotate_gap: Distance of the rotation grip above the top edge, in pixels.
+
+    Returns:
+        Scan x and y of the grip.
+    """
+    if handle is FrameHandle.ROTATE:
+        return to_scan(region, 0.0, -region.height / 2 - rotate_gap)
+    return to_scan(region, handle.sx * region.width / 2, handle.sy * region.height / 2)
+
+
+def moved(region: CropRegion, dx: float, dy: float) -> CropRegion:
+    """Shift a frame.
+
+    Args:
+        region: The frame.
+        dx: Shift in x, pixels.
+        dy: Shift in y, pixels.
+
+    Returns:
+        The shifted frame.
+    """
+    return replace(region, cx=region.cx + dx, cy=region.cy + dy)
+
+
+def resized(region: CropRegion, handle: FrameHandle, x: float, y: float,
+            min_side: float) -> CropRegion:
+    """Drag a side or corner grip to a scan point; the opposite side stays.
+
+    Args:
+        region: The frame.
+        handle: A side or corner grip (not ``ROTATE``).
+        x: Scan x of the mouse.
+        y: Scan y of the mouse.
+        min_side: Minimum side length in pixels.
+
+    Returns:
+        The resized frame with unchanged angle.
+    """
+    u, v = to_local(region, x, y)
+    centre_u, centre_v, width, height = 0.0, 0.0, region.width, region.height
+    if handle.sx:
+        fixed = -handle.sx * region.width / 2
+        width = max(min_side, handle.sx * (u - fixed))
+        centre_u = fixed + handle.sx * width / 2
+    if handle.sy:
+        fixed = -handle.sy * region.height / 2
+        height = max(min_side, handle.sy * (v - fixed))
+        centre_v = fixed + handle.sy * height / 2
+    cx, cy = to_scan(region, centre_u, centre_v)
+    return replace(region, cx=cx, cy=cy, width=width, height=height)
+
+
+def rotated_towards(region: CropRegion, x: float, y: float, step: float = 0.0) -> CropRegion:
+    """Turn the frame so that its top points at a scan point.
+
+    Args:
+        region: The frame.
+        x: Scan x of the mouse.
+        y: Scan y of the mouse.
+        step: Snap the angle to multiples of this many degrees; 0 for none.
+
+    Returns:
+        The turned frame; ``angle`` lies in (-180, 180].
+    """
+    angle = math.degrees(math.atan2(x - region.cx, region.cy - y))
+    if step > 0:
+        angle = round(angle / step) * step
+    angle = -((-angle + 180) % 360 - 180)
+    return replace(region, angle=angle)
+
+
+def turned_by(region: CropRegion, degrees: float) -> CropRegion:
+    """Change the skew by a small amount.
+
+    Args:
+        region: The frame.
+        degrees: Change, positive clockwise.
+
+    Returns:
+        The turned frame.
+    """
+    return replace(region, angle=round(region.angle + degrees, 3))
+
+
+def summary(region: CropRegion, dpi: int) -> str:
+    """Describe size, skew and output turn of a frame.
+
+    Args:
+        region: The frame.
+        dpi: Resolution of the scan.
+
+    Returns:
+        E.g. ``101 x 71 mm, skew -0.8°, saved turned 90° clockwise``.
+    """
+    mm = 25.4 / dpi
+    turn = {0: "saved as framed", 1: "saved turned 90° clockwise",
+            2: "saved turned 180°", 3: "saved turned 90° counter-clockwise"}
+    width, height = region.width * mm, region.height * mm
+    return (f"{width:.0f} x {height:.0f} mm, skew {region.angle:+.1f}°, "
+            f"{turn[region.quarter_turns % 4]}")
