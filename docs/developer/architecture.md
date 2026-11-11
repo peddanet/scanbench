@@ -30,7 +30,7 @@ flowchart TB
 them. The GUI is imported lazily, so `scanbench doctor` works without a
 display.
 
-## Modules of release 0.1.0
+## Modules of release 0.1.0 (core and release workflows)
 
 ### Application core and desktop integration
 
@@ -98,6 +98,97 @@ sequenceDiagram
   W->>W: idle? then restart into the new release
   R-->>W: newer release seen (updates from elsewhere): ask, switch when idle
 ~~~
+
+## Modules of release 0.2.0 (scanning, photo album, printing)
+
+### Domain and infrastructure
+
+| Module | Class | Responsibility |
+|---|---|---|
+| `domain/scan_source.py`, `color_mode.py`, `image_format.py` | enums | source, colour mode, photo file format |
+| `domain/pdf_quality.py` | `PdfQuality` | PDF size level and its Ghostscript preset |
+| `domain/paper_format.py` | `PaperFormat` | document sizes, photo presets, A4 frame |
+| `domain/scan_settings.py` | `ScanSettings` | source, mode, resolution, paper of one scan |
+| `domain/device_info.py`, `device_options.py` | `DeviceInfo`, `DeviceOptions` | a SANE device; its options parsed from `scanimage -A`, mapped to the enums |
+| `domain/duplex_order.py` | `DuplexOrder` | feeder order to reading order (manual duplex) |
+| `domain/crop_region.py` | `CropRegion` | rotated photo frame: turn, straighten, fit, snap, clamp |
+| `domain/printer_info.py`, `printer_option.py`, `print_job.py` | value objects | CUPS queue, PPD option parsed from `lpoptions -l`, chosen job |
+| `domain/scan_error.py` | `ScanError` | user-facing error of scanning, saving, printing |
+| `infrastructure/scanimage_backend.py` | `ScanimageBackend` | devices, options, flatbed and batch scans (Adapter) |
+| `infrastructure/image_store.py` | `ImageStore` | read, turn and write images with resolution (Pillow) |
+| `infrastructure/photo_detector.py` | `PhotoDetector` | colour distance + edges, minimum-area rectangles (Strategy) |
+| `infrastructure/image_cropper.py` | `ImageCropper` | affine cut-out, deskew, quarter turns |
+| `infrastructure/pdf_writer.py` | `PdfWriter` | lossless PDF with img2pdf, reduction with Ghostscript (Template Method) |
+| `infrastructure/cups_client.py` | `CupsClient` | printers, driver options, print jobs (Adapter) |
+| `infrastructure/settings_store.py` | `SettingsStore` | small persistent settings (album folder) |
+
+### Application and user interface
+
+| Module | Class | Responsibility |
+|---|---|---|
+| `application/document_session.py` | `DocumentSession`, `Page` | pages of a document, edit commands, manual duplex merge, PDF output |
+| `application/photo_session.py` | `PhotoSession`, `PhotoScan`, `AlbumOptions` | full-frame scan, proposal, confirmation, numbering, `album.json` (State: idle / waiting) |
+| `ui/workbench.py` | `Workbench`, `build_workbench` | creates adapters, sessions and tabs (Factory Method) |
+| `ui/task_runner.py` | `TaskRunner` | background jobs in a thread pool, results in the GUI thread |
+| `ui/device_bar.py` | `DeviceBar` | scanner selection shared by the tabs (Observer subject) |
+| `ui/tab_context.py`, `ui/dialogs.py` | `TabContext`, `Dialogs` | collaborators and modal questions of the tabs (Parameter Object) |
+| `ui/scan_tab.py` | `ScanTab` | base of the tabs: job start, error report, unlocking (Template Method) |
+| `ui/settings_panel.py` | `SettingsPanel` | source, mode, resolution, paper combos following the device |
+| `ui/document_tab.py`, `ui/page_list.py` | `DocumentTab`, `PageList` | document commands; thumbnails, preview, page commands |
+| `ui/photo_tab.py`, `ui/photo_form.py` | `PhotoTab`, `PhotoForm` | album workflow; album options |
+| `ui/region_view.py` | `RegionView`, `RegionItem`, `RegionMenus` | frame editor with context-menu commands (Command) |
+| `ui/print_dialog.py`, `ui/option_form.py` | `PrintDialog`, `OptionForm` | printer, copies, driver options |
+
+~~~mermaid
+classDiagram
+  class ScanTab { +run_job() +finish() +refresh() }
+  ScanTab <|-- DocumentTab
+  ScanTab <|-- PhotoTab
+  DocumentTab --> DocumentSession
+  DocumentTab --> PageList
+  PhotoTab --> PhotoSession
+  PhotoTab --> RegionView
+  RegionView ..> RegionMenus : context menu
+  DocumentSession --> ScanimageBackend
+  DocumentSession --> PdfWriter
+  PhotoSession --> ScanimageBackend
+  PhotoSession --> PhotoDetector
+  PhotoSession --> ImageCropper
+  DocumentTab ..> CupsClient : print
+  PhotoTab ..> CupsClient : print
+  ScanTab --> TaskRunner
+~~~
+
+### Photo album sequence
+
+~~~mermaid
+sequenceDiagram
+  actor U as User
+  participant T as PhotoTab
+  participant R as TaskRunner
+  participant S as PhotoSession
+  participant B as ScanimageBackend
+  participant D as PhotoDetector
+  U->>T: Scan page
+  T->>R: run(scan)
+  R->>S: scan(device, A4 frame)
+  S->>B: scanimage --format=png
+  S->>D: detect(pixels, dpi)
+  D-->>S: regions (minimum-area rectangles)
+  S-->>T: PhotoScan (waiting)
+  U->>T: right-click: rotate, straighten, fit, delete
+  U->>T: Confirm
+  T->>R: run(accept)
+  R->>S: crop, deskew, save photo-NNNN, append album.json
+  S-->>T: written files (idle)
+~~~
+
+### Threads and release switching
+
+Scans, saves and print jobs run in `TaskRunner`; the runner's `started` and
+`finished` signals mark the main window busy. In addition the window asks
+`Workbench.unsaved()`: an unconfirmed photo scan or an unsaved document also
+postpones a release switch. Every status message re-checks a waiting switch.
 
 ## Target design
 
