@@ -9,7 +9,13 @@ description = "Document and photo-album scanning for Linux, built on SANE"
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Peter Wein" }]
-dependencies = ["PySide6-Essentials>=6.8"]
+dependencies = [
+    "PySide6-Essentials>=6.8",
+    "img2pdf>=0.5",
+    "numpy>=2.0",
+    "opencv-python-headless>=4.10",
+    "Pillow>=10.4",
+]
 classifiers = [
     "Environment :: X11 Applications :: Qt",
     "Operating System :: POSIX :: Linux",
@@ -48,11 +54,12 @@ scanbench = ["resources/*.in", "resources/icons/*.svg"]
 # ---------------------------------------------------------------- gate 2: lint
 [tool.pylint.main]
 load-plugins = ["pylint.extensions.docparams", "pylint.extensions.mccabe"]
-extension-pkg-allow-list = ["PySide6"]
+extension-pkg-allow-list = ["PySide6", "shiboken6"]
 
 [tool.pylint.typecheck]
 # Qt signals are created at run time; pylint cannot see their methods.
-generated-members = ["connect", "emit", "disconnect"]
+# OpenCV 5 loads its native module from a package; pylint cannot inspect it.
+generated-members = ["connect", "emit", "disconnect", "cv2.*"]
 
 [tool.pylint.format]
 max-line-length = 100
@@ -81,6 +88,11 @@ default-docstring-type = "google"
 files = ["src", "tests", "tools"]
 mypy_path = "tests"
 strict = true
+
+[[tool.mypy.overrides]]
+# img2pdf ships no type information.
+module = ["img2pdf"]
+ignore_missing_imports = true
 
 # ------------------------------------------------------------ gate 4: security
 [tool.bandit]

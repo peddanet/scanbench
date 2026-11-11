@@ -9,6 +9,8 @@ from scanbench.infrastructure.tool_probe import ToolProbe
 DEFAULT_REQUIREMENTS = (
     ToolRequirement("scanimage", True, "scanning through SANE", "sane-utils"),
     ToolRequirement("gs", False, "shrinking PDF files", "ghostscript"),
+    ToolRequirement("lp", False, "printing through CUPS", "cups-client"),
+    ToolRequirement("lpoptions", False, "printer driver options", "cups-client"),
     ToolRequirement("rclone", False, "export to cloud storage", "rclone"),
 )
 """Programs checked by default; the package hints refer to Debian/Ubuntu."""
