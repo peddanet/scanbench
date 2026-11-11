@@ -70,7 +70,8 @@ done
 #    valid across releases (desktop file and icon below ~/.local/share).
 mkdir -p "$BIN"
 ln -sfn "$ROOT/venv/bin/scanbench" "$BIN/scanbench"
-"$ROOT/venv/bin/scanbench" install-desktop --exec "$ROOT/venv/bin/scanbench"
+SCANBENCH_HOME="$ROOT" SCANBENCH_BIN="$BIN" \
+  "$ROOT/venv/bin/scanbench" install-desktop --exec "$ROOT/venv/bin/scanbench"
 echo "Done: $REPORTED, launcher $BIN/scanbench"
 case ":$PATH:" in
   *":$BIN:"*) ;;

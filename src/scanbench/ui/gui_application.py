@@ -15,6 +15,7 @@ from scanbench.infrastructure.app_paths import AppPaths
 from scanbench.ui.main_window import MainWindow
 from scanbench.ui.release_watcher import ReleaseWatcher
 from scanbench.ui.update_dialog import UpdateDialog
+from scanbench.ui.workbench import Workbench, build_workbench
 
 
 class GuiApplication:
@@ -36,6 +37,7 @@ class GuiApplication:
         self.window: MainWindow | None = None
         self.dialog: UpdateDialog | None = None
         self.watcher: ReleaseWatcher | None = None
+        self.workbench: Workbench | None = None
 
     @staticmethod
     def configure(app: QGuiApplication) -> None:
@@ -108,7 +110,14 @@ class GuiApplication:
         Returns:
             The shown window.
         """
-        self.window = MainWindow(self._version_text)
+        bench = self.workbench = build_workbench(self._paths)
+        self.window = MainWindow(self._version_text, tabs=(bench.documents, bench.photos),
+                                 header=bench.devices)
+        for source in (bench.devices, bench.documents, bench.photos):
+            source.message.connect(self.window.show_message)
+        self.window.unsaved = bench.unsaved
+        bench.runner.started.connect(lambda: self._set_busy(True))
+        bench.runner.finished.connect(lambda: self._set_busy(False))
         self.window.update_requested.connect(self.open_update)
         self.window.switch_requested.connect(self.restart)
         if self._is_release:
@@ -116,7 +125,23 @@ class GuiApplication:
                                           parent=self.window)
             self.watcher.new_release.connect(self._on_new_release)
         self.window.show()
+        bench.devices.refresh()
         return self.window
+
+    def _set_busy(self, busy: bool) -> None:
+        """Forward job start and end to the window (postpones release switches).
+
+        Args:
+            busy: True when a job starts.
+        """
+        if self.window is not None:
+            self.window.set_busy(busy)
+
+    def close(self) -> None:
+        """Wait for running jobs and remove the session's raw scans."""
+        if self.workbench is not None:
+            self.workbench.close()
+            self.workbench = None
 
     def run(self, argv: list[str]) -> int:
         """Run the event loop until the window is closed.
@@ -131,4 +156,7 @@ class GuiApplication:
         app = existing if isinstance(existing, QApplication) else QApplication(argv)
         self.configure(app)
         self.show()
-        return app.exec()
+        try:
+            return app.exec()
+        finally:
+            self.close()

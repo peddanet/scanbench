@@ -1,5 +1,6 @@
 """Install and remove the per-user launcher entry (desktop file and icon)."""
 
+from collections.abc import Mapping
 from importlib import resources
 from pathlib import Path
 
@@ -18,19 +19,22 @@ class DesktopInstaller:
     and pick up the entry without a restart.
     """
 
-    def __init__(self, paths: AppPaths, exec_path: Path, home: str | None = None) -> None:
+    def __init__(self, paths: AppPaths, exec_path: Path,
+                 env: Mapping[str, str] | None = None) -> None:
         """Store target locations and the program to launch.
 
         Args:
             paths: Resolver of the target directories.
             exec_path: Absolute path of the ``scanbench`` launcher.
-            home: Value of ``SCANBENCH_HOME`` to pass to the program. A program
-                started from the menu does not necessarily see variables set
-                in ``~/.profile``, so the entry carries the value itself.
+            env: Variables to pass to the program, e.g. ``SCANBENCH_HOME`` and
+                ``SCANBENCH_BIN``. A program started from the menu does not
+                necessarily see variables set in ``~/.profile``, so the entry
+                carries the values itself; an update started in the GUI then
+                installs into the same places as one started in a terminal.
         """
         self._paths = paths
         self._exec_path = exec_path
-        self._home = home
+        self._env = dict(env or {})
 
     @property
     def desktop_file(self) -> Path:
@@ -72,7 +76,7 @@ class DesktopInstaller:
         """Return the Exec value.
 
         Returns:
-            ``[env SCANBENCH_HOME=<home>] <launcher>``, quoted where needed.
+            ``[env NAME=value ...] <launcher>``, quoted where needed.
 
         Raises:
             ValueError: If the launcher path is relative or an argument contains
@@ -81,9 +85,9 @@ class DesktopInstaller:
         if not self._exec_path.is_absolute():
             raise ValueError(f"launcher path must be absolute: {self._exec_path}")
         launcher = self._quote(str(self._exec_path))
-        if self._home:
-            return f"env {self._quote(f'SCANBENCH_HOME={self._home}')} {launcher}"
-        return launcher
+        pairs = [self._quote(f"{name}={value}") for name, value in sorted(self._env.items())
+                 if value]
+        return " ".join(["env", *pairs, launcher]) if pairs else launcher
 
     def render(self) -> str:
         """Fill the packaged template with the launcher path and the app ID.

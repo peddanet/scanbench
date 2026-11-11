@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from fakes import FakeShell, failed, ok
 
 import scanbench
 from scanbench import cli as cli_module
@@ -201,14 +202,71 @@ def test_chooser(tmp_path: Path) -> None:
 
 
 def test_install_desktop_exec_and_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """--exec and SCANBENCH_HOME end up in the Exec key.
+    """--exec, SCANBENCH_HOME and SCANBENCH_BIN end up in the Exec key.
 
     Args:
         tmp_path: Temporary directory of the test.
-        monkeypatch: Sets SCANBENCH_HOME.
+        monkeypatch: Sets the variables.
     """
     monkeypatch.setenv("SCANBENCH_HOME", "/opt/sb.d")
+    monkeypatch.setenv("SCANBENCH_BIN", "/opt/bin")
     _cli(tmp_path, Recorder()).run(["install-desktop", "--exec", "/opt/sb.d/venv/bin/scanbench"])
     desktop = next((tmp_path / ".local/share/applications").glob("*.desktop"))
     text = desktop.read_text(encoding="utf-8")
-    assert "Exec=env SCANBENCH_HOME=/opt/sb.d /opt/sb.d/venv/bin/scanbench\n" in text
+    assert ("Exec=env SCANBENCH_BIN=/opt/bin SCANBENCH_HOME=/opt/sb.d "
+            "/opt/sb.d/venv/bin/scanbench\n") in text
+
+
+def _scanning_cli(tmp_path: Path, rec: Recorder, shell: FakeShell) -> Cli:
+    """Create a Cli whose scanner and printer commands use a fake shell.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        rec: Recorder of the output.
+        shell: Fake shell.
+
+    Returns:
+        The Cli.
+    """
+    cli = _cli(tmp_path, rec)
+    cli.shell = shell
+    return cli
+
+
+def test_devices_command(tmp_path: Path) -> None:
+    """Scanners are listed with their options; errors and empty lists fail.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    options = "    --mode Gray|Color [Gray]\n    --source Flatbed [Flatbed]\n"
+    shell = FakeShell(script={("scanimage", "-f"): [ok("a:1|Canon|MX920|multi\n")],
+                              ("scanimage", "-d"): [ok(options)]})
+    rec = Recorder()
+    assert _scanning_cli(tmp_path, rec, shell).run(["devices"]) == 0
+    assert rec.lines == ["Canon MX920 (a:1)", "  sources:     Flatbed",
+                         "  modes:       Gray, Color", "  resolutions: -"]
+    assert _scanning_cli(tmp_path, rec, FakeShell()).run(["devices"]) == 1
+    assert "no scanner" in rec.lines[-1]
+    broken = FakeShell(script={("scanimage",): [failed("boom")]})
+    assert _scanning_cli(tmp_path, rec, broken).run(["devices", "--test"]) == 1
+    assert "boom" in rec.lines[-1]
+
+
+def test_printers_command(tmp_path: Path) -> None:
+    """Printers are listed with options; errors and empty lists fail.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    shell = FakeShell(script={("lpstat", "-e"): [ok("MX920\n")],
+                              ("lpstat", "-d"): [ok("system default destination: MX920")],
+                              ("lpoptions",): [ok("InputSlot/Source: *Auto CDTray\n")]})
+    rec = Recorder()
+    assert _scanning_cli(tmp_path, rec, shell).run(["printers"]) == 0
+    assert rec.lines[0] == "MX920  (default)" and "CDTray" in rec.lines[1]
+    assert _scanning_cli(tmp_path, rec, FakeShell()).run(["printers"]) == 1
+    assert "no printer" in rec.lines[-1]
+    broken = FakeShell(script={("lpstat",): [failed("no cupsd")]})
+    assert _scanning_cli(tmp_path, rec, broken).run(["printers"]) == 1
+    assert "no cupsd" in rec.lines[-1]
