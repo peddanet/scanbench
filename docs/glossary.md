@@ -61,6 +61,9 @@ commits. [git-format-patch](https://git-scm.com/docs/git-format-patch)
 release and hotfix branches.
 [V. Driessen](https://nvie.com/posts/a-successful-git-branching-model/)
 
+**Grip (frame editor)** -- small circle on the selected photo frame; white
+grips resize, the orange grip above the top edge rotates the frame.
+
 **hicolor** -- fallback icon theme every freedesktop desktop searches.
 [Icon Theme Specification](https://specifications.freedesktop.org/icon-theme-spec/latest/)
 

@@ -6,6 +6,25 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-11
+
+### Added
+
+- Frame editor of the photo-album tab: a line below the preview shows size,
+  skew and output orientation of the selected frame; grips on the selected
+  frame resize it (the opposite side stays) and an orange grip above the top
+  edge rotates it freely (Shift: 0.5 degree steps); arrow keys move by 1 mm
+  (Shift: 10 mm), `+`/`-` turn by 0.1 degrees, Delete removes the frame.
+
+### Documentation
+
+- User documentation merged into one user guide (`docs/user/README.md`) with
+  a clickable table of contents.
+- Developer documentation split into one page per functional unit:
+  architecture overview, core and updates, scanning and documents, photo
+  album, printing, GUI and threads.
+- Project README rewritten: features, installation, usage, documentation map.
+
 ## [0.2.0] - 2026-11-11
 
 ### Added
