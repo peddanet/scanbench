@@ -1,0 +1,9 @@
+flowchart LR
+  R[ScanRequest<br/>format, source, dpi, mode] --> SC[scan via backend<br/>pages p_001.png ...]
+  SC --> Q{source == ADF Duplex?}
+  Q -- no --> PDF[PdfAssembleStep<br/>img2pdf, lossless]
+  Q -- yes --> RO[ReorderStep<br/>DuplexOrder strategy]
+  RO --> RB[RotateBacksStep<br/>even pages +180, pikepdf]
+  PDF --> OUT[name.pdf]
+  RB --> OUT
+  OUT --> OPT[optional ShrinkStep<br/>Ghostscript, always from original]

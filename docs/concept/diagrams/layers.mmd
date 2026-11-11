@@ -1,0 +1,35 @@
+flowchart TB
+  subgraph UI["ui  (PySide6, thin views)"]
+    MW[MainWindow] --- DV[DocumentScanView]
+    MW --- PV[PhotoScanView]
+    MW --- SV[SettingsDialog]
+  end
+  subgraph APP["application  (presenters, use cases, no Qt widgets)"]
+    DP[DocumentPresenter] --> DS[DocumentScanService]
+    PP[PhotoPresenter] --> PS[PhotoSessionService]
+    PS --> ST[PhotoSessionState]
+  end
+  subgraph DOM["domain  (pure Python, fully unit-tested)"]
+    SR[ScanRequest]:::d
+    PR[PageRules]:::d
+    CR[CropRegion]:::d
+    EP[EncodingProfile]:::d
+  end
+  subgraph INF["infrastructure  (adapters to the outside world)"]
+    SB[ScanimageBackend]
+    PD[OpenCvPhotoDetector]
+    PB[Img2PdfBuilder + PikePdfRotator]
+    EX[TarExporter / RcloneExporter]
+    CF[IniConfigRepository]
+  end
+  DV --> DP
+  PV --> PP
+  DS --> SR
+  PS --> CR
+  DS -. port .-> SB
+  DS -. port .-> PB
+  PS -. port .-> SB
+  PS -. port .-> PD
+  PS -. port .-> EX
+  APP -. port .-> CF
+  classDef d fill:#eef,stroke:#669

@@ -1,0 +1,8 @@
+flowchart LR
+  A[push feature/x] -->|pre-push hook| L[tools/check.sh<br/>local, 1 Python]
+  L --> PR[Pull request into develop/main]
+  PR --> G1["Job gates (3.12)<br/>Stage 0 privacy<br/>Stage 1 format<br/>Stage 2 lint<br/>Stage 3 types<br/>Stage 4 security<br/>Stage 5 tests"]
+  G1 -->|green + up to date| M[merge]
+  M --> T[tag vX.Y.Z on main]
+  T --> G2["Job gates matrix<br/>3.12 / 3.13 / 3.14"]
+  G2 --> RC[release-check<br/>tag on main, tag = version]
