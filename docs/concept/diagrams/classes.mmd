@@ -1,0 +1,69 @@
+classDiagram
+  direction LR
+  class ScannerBackend {
+    <<interface>>
+    +list_devices() list~DeviceInfo~
+    +options(device) DeviceOptions
+    +scan(request, sink) ScanResult
+  }
+  class ScanimageBackend
+  class SaneTestBackend
+  class FakeBackend
+  ScannerBackend <|.. ScanimageBackend
+  ScannerBackend <|.. FakeBackend
+  ScanimageBackend <|-- SaneTestBackend
+  class DeviceProfile {
+    +source_names: dict
+    +resolutions: list~int~
+    +duplex_formats: set
+    +duplex_order: DuplexOrder
+    +back_rotation: int
+  }
+  ScanimageBackend --> DeviceProfile : translates generic options
+  class DuplexOrder {
+    <<interface>>
+    +arrange(pages) list
+  }
+  class InterleavedOrder
+  class TwoPassOrder
+  DuplexOrder <|.. InterleavedOrder
+  DuplexOrder <|.. TwoPassOrder
+  class PageProcessor {
+    <<interface>>
+    +process(pages) pages
+  }
+  class ReorderStep
+  class RotateBacksStep
+  class PdfAssembleStep
+  PageProcessor <|.. ReorderStep
+  PageProcessor <|.. RotateBacksStep
+  PageProcessor <|.. PdfAssembleStep
+  ReorderStep --> DuplexOrder
+  class PhotoDetector {
+    <<interface>>
+    +detect(image) list~CropRegion~
+  }
+  class OpenCvPhotoDetector
+  PhotoDetector <|.. OpenCvPhotoDetector
+  class ImageEncoder {
+    <<interface>>
+    +encode(image, path)
+  }
+  class PngEncoder
+  class JpegEncoder
+  ImageEncoder <|.. PngEncoder
+  ImageEncoder <|.. JpegEncoder
+  class Exporter {
+    <<interface>>
+    +export(folder) ExportResult
+  }
+  class TarExporter
+  class RcloneExporter
+  class OpenFolderExporter
+  Exporter <|.. TarExporter
+  Exporter <|.. RcloneExporter
+  Exporter <|.. OpenFolderExporter
+  class BackendFactory {
+    +create(config) ScannerBackend
+  }
+  BackendFactory ..> ScannerBackend : creates

@@ -1,0 +1,26 @@
+sequenceDiagram
+  actor U as User
+  participant V as PhotoScanView
+  participant P as PhotoPresenter
+  participant S as PhotoSessionService
+  participant B as ScannerBackend
+  participant D as PhotoDetector
+  participant E as ImageEncoder
+  U->>V: place photos, press Scan
+  V->>P: on_scan()
+  P->>S: scan_batch()
+  S->>B: scan(Flatbed, Color, 600 dpi, full area)
+  B-->>S: raw image (worker thread, progress signals)
+  S->>D: detect(raw)
+  D-->>S: CropRegions (angle, box)
+  S-->>P: proposal
+  P-->>V: show overlay boxes
+  U->>V: correct boxes, rotate, Accept
+  V->>P: on_accept(regions)
+  P->>S: save(regions)
+  loop each region
+    S->>S: deskew + crop (lossless in memory)
+    S->>E: encode(photo, album/NNNN.png)
+  end
+  S-->>P: saved n photos
+  P-->>V: ask "Next photos or Done?"

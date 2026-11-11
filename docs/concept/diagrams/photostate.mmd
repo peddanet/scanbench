@@ -1,0 +1,17 @@
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Placing : start session (album folder chosen)
+  Placing --> Scanning : "Scan" pressed
+  Scanning --> Detecting : image received
+  Scanning --> Error : device busy / not found
+  Detecting --> Reviewing : regions proposed
+  Reviewing --> Reviewing : add / delete / adjust / rotate region (Command, undo)
+  Reviewing --> Saving : "Accept"
+  Reviewing --> Placing : "Rescan"
+  Saving --> Placing : "Next photos"
+  Saving --> Finishing : "Done"
+  Finishing --> Exporting : export target chosen
+  Finishing --> [*] : no export
+  Exporting --> [*]
+  Error --> Placing : retry
+  Error --> [*] : cancel
