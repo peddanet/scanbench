@@ -24,7 +24,7 @@ Lead document of the design documents.
 | M0 | repository skeleton, gates, staged runner, CI, desktop entry, empty window; update and publish workflows with live release switching | done in 0.1.0 |
 | M1 | scanner adapter, device detection, device profiles, CLI for the seven scan cases | adapter, detection and `scanbench devices` in 0.2.0; device profiles open |
 | M2 | document GUI, duplex pipeline, calibration wizard, PDF shrinking | first draft in 0.2.0 (without calibration wizard) |
-| M3 | photo-album mode: detection, review with undo, encoders, album loop | first draft in 0.2.0 (without undo); printing through CUPS added |
+| M3 | photo-album mode: detection, review with undo, encoders, album loop | first draft in 0.2.0 (without undo); printing through CUPS added; free frame editing in 0.2.1 |
 | M4 | export (archive, rclone, folder), complete documentation, release 1.0.0 | planned |
 
 Requested for later releases (not yet scheduled to a milestone):
@@ -32,7 +32,7 @@ Requested for later releases (not yet scheduled to a milestone):
 | Item | Note |
 |---|---|
 | orientation proposal from the picture content | suggest the 90-degree turn per photo (faces, horizon, text) |
-| align a frame to a drawn line | draw along an edge of the photo; the frame takes that angle |
+| align a frame to a drawn line | draw along an edge of the photo; the frame takes that angle (0.2.1 has free rotation with a grip and 0.1° keys) |
 | PDF collage assistant | several photos and texts on pages, exported as PDF |
 | duplex calibration wizard, device profiles | from M1/M2 |
 | undo in the frame editor | from M3 |
@@ -60,4 +60,4 @@ unchanged as the record of the design decision.
 | pylint defaults "from memory" | defaults confirmed with `pylint --generate-toml-config`, pylint 4.1.3 | open point of the concept closed |
 | package name `sane-airscan` to verify | confirmed for Ubuntu 24.04 (noble, main) on Launchpad | open point of the concept closed |
 | dependency `PySide6` | `PySide6-Essentials` | contains QtCore, QtGui, QtWidgets; the add-on modules are not needed |
-| not in revision 1 | `scanbench update`, `scanbench publish`, versioned venvs and switching of open windows | requested after revision 1; design in [architecture](../developer/architecture.md#update-and-live-switch) |
+| not in revision 1 | `scanbench update`, `scanbench publish`, versioned venvs and switching of open windows | requested after revision 1; design in [architecture](../developer/update-and-switching.md#update-and-live-switch) |

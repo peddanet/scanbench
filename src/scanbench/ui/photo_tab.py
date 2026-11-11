@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
 from scanbench.application.photo_session import PhotoScan, PhotoSession
 from scanbench.domain.crop_region import CropRegion
 from scanbench.infrastructure.settings_store import SettingsStore
 from scanbench.ui.photo_form import PhotoForm
-from scanbench.ui.region_view import RegionView
+from scanbench.ui.frame_editor import FrameEditor
 from scanbench.ui.scan_tab import ScanTab
 from scanbench.ui.tab_context import TabContext
 
@@ -38,9 +38,7 @@ class PhotoTab(ScanTab):
         self._session = session
         self.saved: list[Path] = []
         self.form = PhotoForm(settings, context.dialogs.choose_folder)
-        self.view = RegionView()
-        self.info = QLabel(START_TEXT)
-        self.info.setWordWrap(True)
+        self.editor = FrameEditor(START_TEXT)
         self.buttons.update({key: QPushButton(text) for key, text in (
             ("scan", "Scan page"), ("confirm", "Confirm photos"), ("discard", "Discard scan"),
             ("detect", "Detect again"), ("print", "Print saved photos ..."))})
@@ -48,19 +46,18 @@ class PhotoTab(ScanTab):
         controls.addWidget(self.form)
         for button in self.buttons.values():
             controls.addWidget(button)
-        controls.addWidget(self.info)
         controls.addStretch(1)
         side = QWidget()
         side.setLayout(controls)
         side.setMaximumWidth(380)
         layout = QHBoxLayout(self)
         layout.addWidget(side)
-        layout.addWidget(self.view, 1)
+        layout.addWidget(self.editor, 1)
         for key, action in (("scan", self.scan), ("confirm", self.confirm),
                             ("discard", self.discard), ("detect", self.detect_again),
                             ("print", self.print_photos)):
             self.buttons[key].clicked.connect(action)
-        self.view.regions_changed.connect(self._edited)
+        self.editor.view.regions_changed.connect(self._edited)
         context.devices.options_changed.connect(self.update_options)
         self.update_options()
 
@@ -115,11 +112,13 @@ class PhotoTab(ScanTab):
         Args:
             scan: Scan with proposed regions.
         """
-        self.view.show_scan(scan.path, scan.dpi, scan.regions)
+        self.editor.show_scan(scan.path, scan.dpi, scan.regions)
         self.buttons["confirm"].setText(f"Confirm {len(scan.regions)} photo(s)")
-        self.info.setText(f"{len(scan.regions)} photo(s) found. Check the frames: right-click "
-                          "to rotate, straighten, fit or delete; drag to move; right-click "
-                          "on free space to add a frame. Then confirm.")
+        self.editor.hint.setText(
+            f"{len(scan.regions)} photo(s) found. Check the frames: click one to see its "
+            "values; drag it to move, drag its grips to resize, the orange grip to rotate "
+            "(Shift: 0.5° steps); arrow keys and +/- for fine steps; right-click for more. "
+            "Then confirm.")
         self.finish(f"{len(scan.regions)} photo(s) detected; please confirm")
 
     def _edited(self, regions: list[CropRegion]) -> None:
@@ -145,18 +144,18 @@ class PhotoTab(ScanTab):
             written: The photo files.
         """
         self.saved = written
-        self.view.show_scan(None, 0, [])
+        self.editor.show_scan(None, 0, [])
         self.buttons["confirm"].setText("Confirm photos")
         names = f"{written[0].name} ... {written[-1].name}" if written else "nothing"
-        self.info.setText(f"Saved {len(written)} photo(s): {names}. Put the next page on the "
-                          "glass and scan.")
+        self.editor.hint.setText(f"Saved {len(written)} photo(s): {names}. Put the next "
+                                 "page on the glass and scan.")
         self.finish(f"Saved {len(written)} photo(s) in {self.form.album.text()}")
 
     def discard(self) -> None:
         """Drop the scan without saving."""
         self._session.discard()
-        self.view.show_scan(None, 0, [])
-        self.info.setText(START_TEXT)
+        self.editor.show_scan(None, 0, [])
+        self.editor.hint.setText(START_TEXT)
         self.finish("Scan discarded")
 
     def print_photos(self) -> None:
