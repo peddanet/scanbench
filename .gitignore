@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+# Tools
+.gates/
+.coverage
+.mypy_cache/
+.pytest_cache/
+gates.json
+# Local data never belongs into the repository
+*.local.ini
+privacy/
