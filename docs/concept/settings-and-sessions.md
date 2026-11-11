@@ -62,7 +62,17 @@ It rests on three ideas:
 | Ghostscript reduction must always start from the original; cascades have no or bad effect (DownsampleThreshold 1.5, effective DPI). | reference 12 | Every preview and every output is produced from the lossless original. |
 | Fixed device name instead of an automatically detected one, because detection failed with two active network interfaces. | reference 14 | The device profile stores a fixed device name; detection is only an offer. |
 
-### 1.3 What this concept does not add
+### 1.3 Editor requests of 2026-11-12, planned before 0.3.0
+
+| Request | Release |
+|---|---|
+| zoom in and out of the preview | 0.2.3 |
+| horizontal and vertical guide lines, pulled out of a ruler and removed again | 0.2.3 |
+| undo and redo buttons for all frame edits | 0.2.3 |
+| exact values per photo (angle, width, height) | 0.2.3 |
+| preview scan at 75 to 150 dpi, then a high-resolution scan of only the area around the photos | 0.2.4 |
+
+### 1.4 What this concept does not add
 
 No functions beyond the reference and the existing requests. The following
 are listed as candidates only, without design: blank-page removal, OCR, PDF/A
@@ -289,7 +299,18 @@ below `~/scripts`.
 | speed | thumbnails are cached in `thumbs/`; the list is loaded lazily |
 | end of a session | **Finish** saves the outputs and then asks whether to delete the raw scans; the default is to keep them (decision D9) |
 
-### 5.6 Effect on release switching
+### 5.6 Browsing and finishing an album session
+
+Requested on 2026-11-12:
+
+| Function | Design |
+|---|---|
+| Browse confirmed pages | **Back / Forward** buttons and a page strip show every confirmed scan with its frames and the photos cut from it. A confirmed page can be reopened: frames corrected, photos cut again from the kept raw scan (needs "keep raw scans") |
+| Browse photos | a grid of all saved photos of the session; double-click opens the photo large, with zoom |
+| Finish | **Finish album** ends the session: the user names the album (folder name and title), chooses the outputs and confirms |
+| Outputs on finishing | the photo folder (always); optionally a **PDF album** with one or more photos per page, title page and captions; later an archive or rclone upload (M4) |
+
+### 5.7 Effect on release switching
 
 Because every command is saved immediately, a switch to a new release no longer
 has to wait for "unsaved work". The new release reopens the sessions that were
@@ -398,7 +419,7 @@ Each increment is a release with all quality gates, as before.
 | Release | Content | Requirements |
 |---|---|---|
 | 0.3.0 | settings schema and stack; TOML files; generated settings form with sections, tooltips, badges, reset; summary line; presets; user-guide options table generated from the schema | S1, S2 (T), S3, S6 |
-| 0.3.1 | persistent sessions: autosave, lock, open, recent list, continue on start, finish with raw-scan question; release switch with session reopen | S4, S5 |
+| 0.3.1 | persistent sessions: autosave, lock, open, recent list, continue on start; browse confirmed pages and photos; finish with album name, PDF album and raw-scan question; release switch with session reopen | S4, S5 |
 | 0.3.2 | live figures and previews: size estimates and measured values, PDF page comparison, encoder comparison, detection overlay, duplex result preview | S2 (F, P) |
 | 0.3.3 | activity log with commands and shell-script export; undo/redo; prescan; calibration wizard writing the device profile (turns "assumed" into "measured") | S2, S6 |
 
