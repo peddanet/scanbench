@@ -1,0 +1,112 @@
+"""Locations of configuration, logs, installed release and desktop files."""
+
+from collections.abc import Mapping
+from pathlib import Path
+
+from scanbench.app_info import APP_NAME
+
+
+class AppPaths:
+    """Resolve all directories the application reads or writes.
+
+    Two layouts are supported:
+
+    * XDG layout (default): configuration below ``$XDG_CONFIG_HOME``, logs
+      below ``$XDG_STATE_HOME``, the installed release below
+      ``$XDG_DATA_HOME``.
+    * Single-root layout: if ``SCANBENCH_HOME`` is set, configuration, logs and
+      release all live below that one directory (e.g. ``~/scripts/scanbench.d``).
+
+    Desktop file and icon always go below ``$XDG_DATA_HOME``, because desktop
+    environments only search there.
+    """
+
+    def __init__(self, environ: Mapping[str, str], home: Path) -> None:
+        """Store the environment and the home directory.
+
+        Args:
+            environ: Environment variables, usually ``os.environ``.
+            home: Home directory of the user.
+        """
+        self._environ = environ
+        self._home = home
+
+    def _xdg(self, variable: str, default: str) -> Path:
+        """Return an XDG base directory, honouring an absolute override.
+
+        Args:
+            variable: Name of the XDG variable, e.g. ``XDG_CONFIG_HOME``.
+            default: Path relative to the home directory if unset or relative.
+
+        Returns:
+            The base directory.
+        """
+        value = self._environ.get(variable, "")
+        # The XDG specification says relative values are invalid and ignored.
+        if value and Path(value).is_absolute():
+            return Path(value)
+        return self._home / default
+
+    def _root(self) -> Path | None:
+        """Return the single-root directory if ``SCANBENCH_HOME`` is set.
+
+        Returns:
+            The expanded directory, or None for the XDG layout.
+        """
+        value = self._environ.get("SCANBENCH_HOME", "")
+        return Path(value).expanduser() if value else None
+
+    @property
+    def config_dir(self) -> Path:
+        """Directory of settings and device profiles.
+
+        Returns:
+            The configuration directory.
+        """
+        root = self._root()
+        if root is not None:
+            return root / "config"
+        return self._xdg("XDG_CONFIG_HOME", ".config") / APP_NAME
+
+    @property
+    def log_dir(self) -> Path:
+        """Directory of log files.
+
+        Returns:
+            The log directory.
+        """
+        root = self._root()
+        if root is not None:
+            return root / "logs"
+        return self._xdg("XDG_STATE_HOME", ".local/state") / APP_NAME / "logs"
+
+    @property
+    def release_dir(self) -> Path:
+        """Directory that holds the venv of the installed release.
+
+        Returns:
+            The release directory.
+        """
+        root = self._root()
+        if root is not None:
+            return root
+        return self._xdg("XDG_DATA_HOME", ".local/share") / APP_NAME
+
+    @property
+    def applications_dir(self) -> Path:
+        """Directory searched by desktops for ``.desktop`` files.
+
+        Returns:
+            The per-user applications directory.
+        """
+        return self._xdg("XDG_DATA_HOME", ".local/share") / "applications"
+
+    @property
+    def icon_dir(self) -> Path:
+        """Directory of scalable application icons in the hicolor theme.
+
+        Returns:
+            The per-user icon directory.
+        """
+        data = self._xdg("XDG_DATA_HOME", ".local/share")
+        return data / "icons" / "hicolor" / "scalable" / "apps"

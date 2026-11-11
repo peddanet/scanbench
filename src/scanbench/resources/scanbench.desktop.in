@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=scanbench
+GenericName=Scanner
+Comment=Scan documents and photo albums
+Exec=@EXEC@
+Icon=@APP_ID@
+Terminal=false
+Categories=Graphics;Scanning;
+Keywords=scan;scanner;SANE;photo;album;PDF;
+StartupNotify=true

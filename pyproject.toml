@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scanbench"
+dynamic = ["version"]
+description = "Document and photo-album scanning for Linux, built on SANE"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Peter Wein" }]
+dependencies = ["PySide6-Essentials>=6.8"]
+classifiers = [
+    "Environment :: X11 Applications :: Qt",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Graphics :: Capture :: Scanners",
+]
+
+[project.optional-dependencies]
+dev = [
+    "bandit>=1.8",
+    "mypy>=1.13",
+    "pycodestyle>=2.12",
+    "pylint>=3.3",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "pytest-qt>=4.4",
+]
+
+[project.scripts]
+scanbench = "scanbench.cli:main"
+
+[project.urls]
+Repository = "https://github.com/peddanet/scanbench"
+
+[tool.setuptools.dynamic]
+version = { attr = "scanbench.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+scanbench = ["resources/*.in", "resources/icons/*.svg"]
+
+# ---------------------------------------------------------------- gate 2: lint
+[tool.pylint.main]
+load-plugins = ["pylint.extensions.docparams", "pylint.extensions.mccabe"]
+extension-pkg-allow-list = ["PySide6"]
+
+[tool.pylint.format]
+max-line-length = 100
+max-module-lines = 400
+
+[tool.pylint.design]
+max-args = 5
+max-positional-arguments = 5
+max-locals = 15
+max-statements = 30
+max-branches = 10
+max-complexity = 10
+max-public-methods = 10
+# A class with one public method is legitimate (single responsibility).
+min-public-methods = 1
+
+[tool.pylint.parameter_documentation]
+accept-no-param-doc = false
+accept-no-raise-doc = false
+accept-no-return-doc = false
+accept-no-yields-doc = false
+default-docstring-type = "google"
+
+# --------------------------------------------------------------- gate 3: types
+[tool.mypy]
+files = ["src", "tests", "tools"]
+strict = true
+
+# ------------------------------------------------------------ gate 4: security
+[tool.bandit]
+skips = ["B404", "B603"]
+
+# --------------------------------------------------------------- gate 5: tests
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+qt_api = "pyside6"
+filterwarnings = ["error::ResourceWarning"]
+
+[tool.coverage.run]
+branch = true
+source = ["scanbench"]
+omit = ["*/scanbench/__main__.py"]
+
+[tool.coverage.report]
+fail_under = 90
+precision = 2
+show_missing = true
