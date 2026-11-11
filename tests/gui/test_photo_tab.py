@@ -16,7 +16,9 @@ from scanbench.infrastructure.image_store import ImageStore
 from scanbench.infrastructure.photo_detector import PhotoDetector
 from scanbench.infrastructure.settings_store import SettingsStore
 from scanbench.ui.photo_tab import PhotoTab
-from scanbench.ui.region_view import RegionItem, RegionMenus, RegionView
+from scanbench.ui.frame_items import RegionItem
+from scanbench.ui.region_menus import RegionMenus
+from scanbench.ui.region_view import RegionView
 
 PAGE = [Placed(150, 100, 80, 60, 1.0), Placed(100, 150, 80, 200)]
 """A landscape and a portrait 10 x 15 photo."""
@@ -89,15 +91,15 @@ def test_scan_edit_and_confirm(tmp_path: Path, qtbot: QtBot) -> None:
     assert tab.form.album.text() == str(album)
     assert tab.form.panel.resolution.currentData() == 600
     _run(qtbot, tab, "scan")
-    assert len(tab.view.regions) == 2 and tab.waiting()
-    _edit_frames(tab.view)
+    assert len(tab.editor.view.regions) == 2 and tab.waiting()
+    _edit_frames(tab.editor.view)
     assert tab.buttons["confirm"].text() == "Confirm 3 photo(s)"
     _run(qtbot, tab, "confirm")
     assert [p.name for p in tab.saved] == ["photo-0001.png", "photo-0002.png",
                                            "photo-0003.png"]
-    assert not tab.waiting() and RegionMenus(tab.view).menu_at(QPointF(1, 1)) is None
+    assert not tab.waiting() and RegionMenus(tab.editor.view).menu_at(QPointF(1, 1)) is None
     _run(qtbot, tab, "print")
-    assert tab.info.text().startswith("Saved 3 photo(s)")
+    assert tab.editor.hint.text().startswith("Saved 3 photo(s)")
 
 
 def test_drag_and_context_menu_event(tmp_path: Path, qtbot: QtBot) -> None:
@@ -109,7 +111,7 @@ def test_drag_and_context_menu_event(tmp_path: Path, qtbot: QtBot) -> None:
     """
     tab = _tab(tmp_path, qtbot, Answers())
     _run(qtbot, tab, "scan")
-    view = tab.view
+    view = tab.editor.view
     item = next(i for i in view.scene().items() if isinstance(i, RegionItem) and i.index == 1)
     before = view.regions[1].cx
     item.setPos(10, 0)
@@ -135,9 +137,9 @@ def test_detect_again_discard_and_cancel(tmp_path: Path, qtbot: QtBot) -> None:
     _run(qtbot, tab, "scan")
     tab.form.snap.setChecked(False)
     _run(qtbot, tab, "detect")
-    assert len(tab.view.regions) == 2
+    assert len(tab.editor.view.regions) == 2
     tab.buttons["discard"].click()
-    assert not tab.waiting() and not tab.view.regions
+    assert not tab.waiting() and not tab.editor.view.regions
     tab.detect_again()
     tab.print_photos()
     tab.form.browse()
