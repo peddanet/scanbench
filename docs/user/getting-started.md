@@ -22,6 +22,8 @@ instead of an installed release, the version text says
 |---|---|
 | `scanbench` or `scanbench gui` | start the graphical interface |
 | `scanbench doctor` | show version, directories and external programs; exit status 1 if a required program is missing |
+| `scanbench devices [--test]` | list scanners with sources, modes and resolutions; `--test` adds SANE's virtual scanner |
+| `scanbench printers` | list CUPS printers, the default printer and the driver options |
 | `scanbench install-desktop` | add the launcher entry and icon for the current installation |
 | `scanbench uninstall-desktop` | remove the launcher entry and icon |
 | `scanbench update` | maintainer: release delivered patch archives and install ([updating](updating.md)) |
@@ -36,6 +38,7 @@ All commands run as normal user.
 |---|---|---|
 | Settings, device profiles | `~/.config/scanbench` | `$SCANBENCH_HOME/config` |
 | Logs | `~/.local/state/scanbench/logs` | `$SCANBENCH_HOME/logs` |
+| Raw scans of running sessions (deleted on exit) | `~/.cache/scanbench/session-*` | `$SCANBENCH_HOME/cache/session-*` |
 | Installed releases | `~/.local/share/scanbench/venvs/X.Y.Z`, active one linked as `venv` | `$SCANBENCH_HOME/venvs/X.Y.Z`, `$SCANBENCH_HOME/venv` |
 | Applied patch archives | `~/.local/share/scanbench/releases` | `$SCANBENCH_HOME/releases` |
 

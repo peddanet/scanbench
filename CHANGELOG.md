@@ -6,6 +6,49 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
+### Added
+
+- Documents tab: scanner selection shared by all tabs; flatbed, feeder one
+  side, feeder both sides (as offered by the device); colour, grey, black and
+  white; resolution and paper (A4, A5, A6, Letter); page thumbnails with large
+  preview; rotate, reorder, delete; manual duplex (merge fronts and reversed
+  backs); PDF in five sizes: lossless (img2pdf) or reduced with Ghostscript
+  `/screen`, `/ebook`, `/printer`, `/prepress`, always from the lossless
+  original.
+- Photo-album tab: full A4 frame scan; detection of several photos and
+  postcards, including grey or white borders and photos turned by 90 degrees;
+  frames fitted to 9 x 13, 10 x 15, postcard A6, 13 x 18 cm; frame editor
+  with context menu (rotate 90/180 degrees, remove skew, fit to size, delete,
+  add frame) and drag to move; confirmation per page; deskewed photos saved as
+  PNG or JPEG with continuing numbers and `album.json`; optional full-page
+  scans; album folder remembered.
+- Printing through CUPS: all printers, default preselected, copies, fit to
+  page, every driver option (paper source such as photo tray or CD/DVD tray,
+  media type, page size, quality); for documents and photos.
+- Commands `scanbench devices [--test]` and `scanbench printers`;
+  `scanbench doctor` also checks `lp` and `lpoptions`.
+- About box in the menu.
+- `SCANBENCH_TEST_DEVICE=1` offers SANE's virtual test scanner.
+
+### Changed
+
+- The desktop entry passes `SCANBENCH_HOME` and `SCANBENCH_BIN`, so an update
+  started from the window installs into the same places as one started in a
+  terminal.
+- A release switch also waits for an unconfirmed photo scan or an unsaved
+  document, not only for running jobs.
+- Raw scans of a session are kept in `~/.cache/scanbench` and deleted on exit.
+- New runtime dependencies: OpenCV (headless), NumPy, Pillow, img2pdf. CI
+  installs `sane-utils` and `ghostscript` for the integration tests.
+
+### Documentation
+
+- User pages: scanning documents, scanning photo albums, printing;
+  troubleshooting for photos and printing; glossary terms.
+- Developer architecture: modules, class and sequence diagrams of 0.2.0.
+
 ## [0.1.0] - 2026-11-11
 
 ### Added

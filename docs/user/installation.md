@@ -8,13 +8,18 @@ scanner system packages need administrator rights.
 ## 1. System packages
 
 ~~~bash
-sudo apt install sane-utils sane-airscan
+sudo apt install sane-utils sane-airscan ghostscript cups-client
 ~~~
 
 | Package | Provides | Why `sudo` |
 |---|---|---|
 | `sane-utils` | `scanimage`, the SANE command-line frontend scanbench calls | packages are written below `/usr`; `sudo` from your user context, no root shell needed |
 | `sane-airscan` | SANE backend for network scanners (eSCL, WSD) | as above |
+| `ghostscript` | `gs`, reduces PDF files (optional; without it only lossless PDFs) | as above |
+| `cups-client` | `lp`, `lpstat`, `lpoptions` for printing (optional; usually installed) | as above |
+
+The Python libraries (Qt, OpenCV, Pillow, img2pdf) are installed by
+`install.sh` into the venv of the release; they need no system packages.
 
 Package names are those of Debian and Ubuntu (including Pop!_OS). Other
 distributions use similar names; `scanimage` must be on `PATH`.
