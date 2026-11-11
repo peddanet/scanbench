@@ -8,7 +8,8 @@ Back to: [Developer documentation](README.md) · [Documentation home](../README.
 README.md               project entry on GitHub; links the documentation home
 docs/README.md          documentation home: lead document of all areas
 docs/glossary.md        every technical term, with a link for further reading
-docs/user/              user documentation, lead document README.md
+docs/user/README.md     user guide: one page with clickable table of contents
+docs/user/img/          screenshots of the user guide
 docs/developer/         developer documentation, lead document README.md
 docs/concept/           design documents and revisions, lead document README.md
 ~~~
@@ -18,7 +19,10 @@ docs/concept/           design documents and revisions, lead document README.md
 1. **Lead documents.** Whenever an area has more than one document, its
    `README.md` is the lead document and links every page of the area with a
    one-line description. `docs/README.md` links all lead documents. A new page
-   is added to its lead document in the same commit.
+   is added to its lead document in the same commit. The user documentation
+   is deliberately one page (`docs/user/README.md`) with a numbered,
+   clickable table of contents; the developer documentation is split into
+   one page per functional unit.
 2. **Back links.** Every page starts with a line
    `Back to: [lead document](README.md) · [Documentation home](../README.md)`.
 3. **Planned pages** are listed in the lead document without a link, with the
