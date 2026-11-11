@@ -77,7 +77,7 @@ It never pushes.
 The maintainer turns delivered archives into releases with
 `scanbench update` (terminal) or the menu **scanbench > Update ...**. The
 steps per version are listed in the user documentation,
-[Updating](../user/updating.md#maintainer-release-delivered-patches-with-one-command).
+[user guide, section 8.3](../user/README.md#83-maintainer-release-delivered-patches).
 Deliveries go through the hotfix path even for small additions; strictly by
 Semantic Versioning some of them are minor increments. This is a deliberate
 simplification for a single maintainer.
