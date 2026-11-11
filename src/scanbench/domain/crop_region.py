@@ -16,7 +16,8 @@ class CropRegion:
         cy: Centre y.
         width: Width along the rectangle's own x axis.
         height: Height along the rectangle's own y axis.
-        angle: Skew in degrees, (-45, 45]; positive turns clockwise on screen.
+        angle: Skew in degrees, positive turns clockwise on screen; detected
+            frames lie in (-45, 45], frames turned by the user in (-180, 180].
         quarter_turns: Extra 90-degree turns of the result, clockwise, 0..3.
     """
 
