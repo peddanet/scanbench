@@ -4,11 +4,41 @@ Document and photo-album scanning for Linux, built on SANE, Ghostscript and
 CUPS. Graphical interface with Qt 6; runs on GNOME, KDE Plasma, COSMIC and
 other freedesktop desktops, on Wayland and X11.
 
-> **Status: version 0.2.1, testable draft.** Documents, photo albums and
+> **Status: version 0.2.2, testable draft.** Documents, photo albums and
 > printing work. Device profiles, the duplex calibration wizard and album
 > export follow; see the [roadmap](docs/concept/README.md#roadmap).
 
-![Photo-album tab: detected photos, the selected frame with its grips](docs/user/img/photo-frame-editor.png)
+## See it in action
+
+The pictures below are screenshots of the real program. Only the scanner input
+is simulated, from four copyright-free sample photos laid on an image of a
+scanner lid ([sources and licences](docs/user/img/samples/SOURCES.md)); the
+detection, frames, cropping and dialogs are produced by scanbench itself with
+`tools/screenshots.py`.
+
+**One scan, four photos.** Three prints lie slightly skewed, one is turned by
+90 degrees. scanbench finds all four; the selected frame shows its grips and,
+below the preview, its values. Right-click offers turning, straightening,
+exact photo sizes and deleting.
+
+![Photo-album tab with four detected prints](docs/user/img/photo-frame-editor.png)
+
+**After "Confirm":** every photo is cut out, straightened and turned upright
+(the rocket print was lying sideways), then saved with a continuing number.
+These are the actual output files of the run above.
+
+![Flatbed scan and the four saved photos](docs/user/img/photo-album-result.png)
+
+**Documents:** feeder or flatbed, one or both sides; pages as thumbnails with
+a large preview, turn, reorder, delete, then one PDF in the size you choose.
+
+![Documents tab with a two-page sample letter](docs/user/img/documents-tab.png)
+
+**Printing:** every CUPS printer with the options of its driver, for example
+the rear tray and glossy photo paper for 10 x 15 cm prints. Option names come
+from the installed driver; the picture shows an example.
+
+![Print dialog with driver options](docs/user/img/print-dialog.png)
 
 ## Features
 
