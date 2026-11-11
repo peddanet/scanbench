@@ -13,8 +13,12 @@ from scanbench.application.update_service import Chooser, UpdateService
 from scanbench.domain.patch_archive import PatchArchive
 from scanbench.domain.version import Version
 from scanbench.infrastructure.app_paths import AppPaths
+from scanbench.domain.scan_error import ScanError
 from scanbench.infrastructure.archive_finder import ArchiveFinder
+from scanbench.infrastructure.cups_client import CupsClient
 from scanbench.infrastructure.desktop_installer import DesktopInstaller
+from scanbench.infrastructure.scanimage_backend import ScanimageBackend
+from scanbench.infrastructure.shell import Shell
 from scanbench.infrastructure.tool_probe import ToolProbe
 from scanbench.infrastructure.update_lock import UpdateLock
 from scanbench.infrastructure.version_info import VersionInfo
@@ -22,6 +26,9 @@ from scanbench.wiring import release_context
 
 GuiRunner = Callable[[str, AppPaths, bool], int]
 """Starts the GUI: (version text, paths, is installed release) -> exit status."""
+
+PASSED_VARIABLES = ("SCANBENCH_HOME", "SCANBENCH_BIN")
+"""Installation settings the launcher entry passes on to the program."""
 
 DEFAULT_REPO = "peddanet/scanbench"
 """GitHub repository used by ``scanbench publish``."""
@@ -58,6 +65,7 @@ class Cli:
             out: Function that prints one line.
             ask: Function that asks a question and returns the answer.
         """
+        self.shell = Shell(Path.home())   # runs scanimage and the CUPS clients
         self._paths = paths
         self._version = version
         self._gui = gui
@@ -79,6 +87,9 @@ class Cli:
         sub = parser.add_subparsers(dest="command")
         sub.add_parser("gui", help="start the graphical interface (default)")
         sub.add_parser("doctor", help="check version, directories and external programs")
+        devices = sub.add_parser("devices", help="list scanners and their options")
+        devices.add_argument("--test", action="store_true", help="include SANE's test device")
+        sub.add_parser("printers", help="list printers and their driver options")
         install = sub.add_parser("install-desktop", help="add the launcher entry and icon")
         install.add_argument("--exec", dest="exec_path", type=Path,
                              help="launcher written into the entry (default: this venv)")
@@ -107,6 +118,55 @@ class Cli:
             self._out(line)
         return status
 
+    def _devices(self, args: argparse.Namespace) -> int:
+        """Print every scanner with sources, modes and resolutions.
+
+        Args:
+            args: Parsed arguments.
+
+        Returns:
+            0 if at least one scanner was found, else 1.
+        """
+        scanner = ScanimageBackend(self.shell)
+        try:
+            found = scanner.devices(args.test)
+            for device in found:
+                options = scanner.options(device.name)
+                self._out(device.label)
+                self._out(f"  sources:     {', '.join(options.sources) or '-'}")
+                self._out(f"  modes:       {', '.join(options.modes) or '-'}")
+                self._out(f"  resolutions: {', '.join(map(str, options.resolutions)) or '-'}")
+        except ScanError as exc:
+            self._out(f"error: {exc}")
+            return 1
+        if not found:
+            self._out("no scanner found (see 'scanimage -L' and the SANE documentation)")
+        return 0 if found else 1
+
+    def _printers(self, _args: argparse.Namespace) -> int:
+        """Print every CUPS printer with its driver options.
+
+        Args:
+            _args: Parsed arguments (unused).
+
+        Returns:
+            0 if at least one printer exists, else 1.
+        """
+        cups = CupsClient(self.shell)
+        try:
+            printers = cups.printers()
+            for printer in printers:
+                self._out(printer.name + ("  (default)" if printer.is_default else ""))
+                for option in cups.options(printer.name):
+                    self._out(f"  {option.key:<18} {option.default:<14} "
+                              f"[{' '.join(option.choices)}]")
+        except ScanError as exc:
+            self._out(f"error: {exc}")
+            return 1
+        if not printers:
+            self._out("no printer set up in CUPS (see 'lpstat -e')")
+        return 0 if printers else 1
+
     def _desktop(self, args: argparse.Namespace) -> int:
         """Install or remove the launcher entry.
 
@@ -119,8 +179,8 @@ class Cli:
         launcher = getattr(args, "exec_path", None) or Path(sys.prefix) / "bin" / "scanbench"
         # sys.prefix is the venv root; sys.executable must not be resolved, because
         # in a venv it links to the system interpreter outside the venv.
-        home = os.environ.get("SCANBENCH_HOME") or None
-        installer = DesktopInstaller(self._paths, launcher, home)
+        env = {name: os.environ[name] for name in PASSED_VARIABLES if os.environ.get(name)}
+        installer = DesktopInstaller(self._paths, launcher, env)
         install = args.command == "install-desktop"
         files = installer.install() if install else installer.uninstall()
         for path in files:
@@ -188,7 +248,8 @@ class Cli:
             Exit status.
         """
         args = self.parser().parse_args(list(argv))
-        handlers = {"doctor": self._doctor, "install-desktop": self._desktop,
+        handlers = {"doctor": self._doctor, "devices": self._devices,
+                    "printers": self._printers, "install-desktop": self._desktop,
                     "uninstall-desktop": self._desktop, "update": self._update,
                     "publish": self._publish}
         handler = handlers.get(args.command or "gui")

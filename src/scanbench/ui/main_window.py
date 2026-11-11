@@ -1,9 +1,11 @@
 """Main window: one tab per use case, update menu, safe release switching."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QLabel, QMainWindow, QMessageBox, QTabWidget, QWidget
+from PySide6.QtWidgets import QLabel, QMainWindow, QMessageBox, QTabWidget, QVBoxLayout, QWidget
+
+from scanbench.app_info import APP_NAME
 
 TAB_TITLES = ("Documents", "Photo album")
 """Titles of the use-case tabs, in display order."""
@@ -32,8 +34,8 @@ class MainWindow(QMainWindow):
 
     Release switching happens only at a safe moment: while a job runs
     (``set_busy(True)``), an offered switch waits and is carried out when the
-    window becomes idle again. The tabs are placeholders until milestones
-    M2 (documents) and M3 (photo album).
+    window becomes idle again. Without tabs (tests, no workbench) the window
+    shows placeholders.
     """
 
     update_requested = Signal()
@@ -42,28 +44,39 @@ class MainWindow(QMainWindow):
     switch_requested = Signal(str)
     """The window is idle and the switch to the given release may happen."""
 
-    def __init__(self, version_text: str, confirm: Confirm = ask_switch) -> None:
+    def __init__(self, version_text: str, confirm: Confirm = ask_switch,
+                 tabs: Sequence[QWidget] = (), header: QWidget | None = None) -> None:
         """Build the widgets.
 
         Args:
             version_text: Version shown in the status bar.
             confirm: Question used before a switch the user did not start.
+            tabs: Widgets for the tabs in ``TAB_TITLES`` order.
+            header: Widget above the tabs (scanner selection).
         """
         super().__init__()
         self.setWindowTitle("scanbench")
         self.resize(960, 640)
         self._confirm = confirm
         self._busy = 0
+        # Reports work a restart would lose, e.g. an unconfirmed photo scan.
+        self.unsaved: Callable[[], bool] = lambda: False
         self._pending: tuple[str, bool] | None = None
+        self._version_text = version_text
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._placeholder("Document scanning arrives in milestone M2."),
-                         TAB_TITLES[0])
-        self.tabs.addTab(self._placeholder("Photo-album scanning arrives in milestone M3."),
-                         TAB_TITLES[1])
-        self.setCentralWidget(self.tabs)
+        pages = list(tabs) or [self._placeholder("No scanner support loaded.")
+                               for _ in TAB_TITLES]
+        for page, title in zip(pages, TAB_TITLES):
+            self.tabs.addTab(page, title)
+        central = QWidget()
+        layout = QVBoxLayout(central)
+        if header is not None:
+            layout.addWidget(header)
+        layout.addWidget(self.tabs, 1)
+        self.setCentralWidget(central)
         menu = self.menuBar().addMenu("&scanbench")
-        self.update_action = menu.addAction("&Update ...")
-        self.update_action.triggered.connect(self.update_requested)
+        menu.addAction("&Update ...").triggered.connect(self.update_requested)
+        menu.addAction("&About scanbench").triggered.connect(self.show_about)
         menu.addAction("&Quit").triggered.connect(self.close)
         self.statusBar().showMessage(f"scanbench {version_text}")
 
@@ -81,13 +94,47 @@ class MainWindow(QMainWindow):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         return label
 
-    def is_busy(self) -> bool:
-        """Whether a job (scan, save, export) is running.
+    def about_text(self) -> str:
+        """Return the text of the About box.
 
         Returns:
-            True while at least one job runs.
+            Name, version and purpose as rich text.
         """
-        return self._busy > 0
+        return (f"<b>{APP_NAME} {self._version_text}</b><p>Document and photo-album "
+                "scanning for Linux, built on SANE, Ghostscript and CUPS.</p>"
+                "<p><a href='https://github.com/peddanet/scanbench'>"
+                "github.com/peddanet/scanbench</a></p>")
+
+    def show_about(self) -> None:
+        """Show the About box."""
+        QMessageBox.about(self, f"About {APP_NAME}", self.about_text())
+
+    def show_message(self, text: str) -> None:
+        """Show a status text and carry out a waiting switch if now possible.
+
+        Every tab command ends with a status text, so this is the moment
+        when unsaved work may have been saved or discarded.
+
+        Args:
+            text: The text.
+        """
+        self.statusBar().showMessage(text)
+        self._try_pending()
+
+    def _try_pending(self) -> None:
+        """Carry out a waiting switch when the window is idle."""
+        if not self.is_busy() and self._pending is not None:
+            version, automatic = self._pending
+            self._pending = None
+            self.offer_switch(version, automatic)
+
+    def is_busy(self) -> bool:
+        """Whether a job runs or a restart would lose unsaved work.
+
+        Returns:
+            True while a job (scan, save, print) runs or work is unsaved.
+        """
+        return self._busy > 0 or self.unsaved()
 
     def set_busy(self, busy: bool) -> None:
         """Mark the start or end of a job; carry out a waiting switch when idle.
@@ -96,10 +143,7 @@ class MainWindow(QMainWindow):
             busy: True when a job starts, False when it ends.
         """
         self._busy = max(0, self._busy + (1 if busy else -1))
-        if not self.is_busy() and self._pending is not None:
-            version, automatic = self._pending
-            self._pending = None
-            self.offer_switch(version, automatic)
+        self._try_pending()
 
     def offer_switch(self, version: str, automatic: bool) -> None:
         """Switch to a newly installed release at the next safe moment.
@@ -111,8 +155,8 @@ class MainWindow(QMainWindow):
         """
         if self.is_busy():
             self._pending = (version, automatic)
-            self.statusBar().showMessage(f"scanbench {version} installed; switching "
-                                         "after the current job")
+            self.statusBar().showMessage(f"scanbench {version} installed; switching when "
+                                         "the current work is saved or discarded")
             return
         if automatic or self._confirm(self, version):
             self.switch_requested.emit(version)
