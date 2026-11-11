@@ -31,7 +31,7 @@ bash install.sh
 |---|---|---|
 | 1 | downloads the installer; `-f` fail on HTTP errors, `-sS` quiet but show errors, `-L` follow redirects, `-O` keep the file name | normal user |
 | 2 | lets you read the script before running it | normal user |
-| 3 | finds the newest release tag, creates a venv, installs that release, checks the version, links the launcher and adds the desktop entry | normal user; writes only below your home directory |
+| 3 | finds the newest release tag, creates the venv `venvs/X.Y.Z`, installs that release, checks the version, switches the link `venv` to it, links the launcher and adds the desktop entry | normal user; writes only below your home directory |
 
 A specific release: `bash install.sh v0.1.0`.
 
@@ -56,7 +56,10 @@ configuration later as well.
 
 `install.sh` runs `scanbench install-desktop`, which writes
 
-* `~/.local/share/applications/io.github.peddanet.scanbench.desktop`
+* `~/.local/share/applications/io.github.peddanet.scanbench.desktop`, whose
+  `Exec` line starts `<release dir>/venv/bin/scanbench` (the link, so it stays
+  valid across releases) and carries `SCANBENCH_HOME` if set, because programs
+  started from the menu do not necessarily see variables from `~/.profile`
 * `~/.local/share/icons/hicolor/scalable/apps/io.github.peddanet.scanbench.svg`
 
 scanbench then appears in the application menu of GNOME, KDE Plasma, COSMIC
@@ -65,8 +68,8 @@ installation. Remove the entry with `scanbench uninstall-desktop`.
 
 ## 5. Update and uninstall
 
-Update: run `bash install.sh` again; it replaces the venv with the newest
-release.
+Update: run `bash install.sh` again; see [Updating](updating.md), also for
+how open windows switch to the new release.
 
 Uninstall (normal user, everything is in your home directory):
 

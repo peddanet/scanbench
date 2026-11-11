@@ -18,15 +18,19 @@ class DesktopInstaller:
     and pick up the entry without a restart.
     """
 
-    def __init__(self, paths: AppPaths, exec_path: Path) -> None:
+    def __init__(self, paths: AppPaths, exec_path: Path, home: str | None = None) -> None:
         """Store target locations and the program to launch.
 
         Args:
             paths: Resolver of the target directories.
             exec_path: Absolute path of the ``scanbench`` launcher.
+            home: Value of ``SCANBENCH_HOME`` to pass to the program. A program
+                started from the menu does not necessarily see variables set
+                in ``~/.profile``, so the entry carries the value itself.
         """
         self._paths = paths
         self._exec_path = exec_path
+        self._home = home
 
     @property
     def desktop_file(self) -> Path:
@@ -46,22 +50,40 @@ class DesktopInstaller:
         """
         return self._paths.icon_dir / f"{APP_ID}.svg"
 
-    def exec_value(self) -> str:
-        """Return the Exec value, quoted as the Desktop Entry spec requires.
+    @staticmethod
+    def _quote(text: str) -> str:
+        """Quote one Exec argument as the Desktop Entry spec requires.
+
+        Args:
+            text: The argument.
 
         Returns:
-            The launcher path, in double quotes if it contains a space.
+            The argument, in double quotes if it contains a space.
 
         Raises:
-            ValueError: If the path is relative or contains characters that
-                would need escaping.
+            ValueError: If the argument contains characters that would need
+                escaping.
         """
-        text = str(self._exec_path)
-        if not self._exec_path.is_absolute():
-            raise ValueError(f"launcher path must be absolute: {text}")
         if any(char in text for char in _FORBIDDEN_EXEC_CHARS):
-            raise ValueError(f"launcher path contains unsupported characters: {text}")
+            raise ValueError(f"unsupported characters in launcher entry: {text}")
         return f'"{text}"' if " " in text else text
+
+    def exec_value(self) -> str:
+        """Return the Exec value.
+
+        Returns:
+            ``[env SCANBENCH_HOME=<home>] <launcher>``, quoted where needed.
+
+        Raises:
+            ValueError: If the launcher path is relative or an argument contains
+                characters that would need escaping.
+        """
+        if not self._exec_path.is_absolute():
+            raise ValueError(f"launcher path must be absolute: {self._exec_path}")
+        launcher = self._quote(str(self._exec_path))
+        if self._home:
+            return f"env {self._quote(f'SCANBENCH_HOME={self._home}')} {launcher}"
+        return launcher
 
     def render(self) -> str:
         """Fill the packaged template with the launcher path and the app ID.

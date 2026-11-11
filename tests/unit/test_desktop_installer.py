@@ -50,3 +50,13 @@ def test_exec_rejects_unsafe_paths(tmp_path: Path, launcher: str) -> None:
     """
     with pytest.raises(ValueError):
         _installer(tmp_path, launcher).exec_value()
+
+
+def test_exec_with_home_and_spaces(tmp_path: Path) -> None:
+    """SCANBENCH_HOME is passed through env, quoted when it contains a space.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    installer = DesktopInstaller(AppPaths({}, tmp_path), Path("/x/scanbench"), "/my home")
+    assert installer.exec_value() == 'env "SCANBENCH_HOME=/my home" /x/scanbench'

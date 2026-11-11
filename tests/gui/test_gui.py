@@ -1,13 +1,40 @@
 """GUI tests; run offscreen through pytest-qt."""
 
+import shutil
+from pathlib import Path
+
 import pytest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QProcess
+from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 from pytestqt.qtbot import QtBot
 
+from scanbench import __version__
 from scanbench import cli as cli_module
 from scanbench.app_info import APP_ID, APP_NAME
+from scanbench.domain.version import Version
+from scanbench.infrastructure.app_paths import AppPaths
+from scanbench.ui import main_window as main_window_module
 from scanbench.ui.gui_application import GuiApplication
 from scanbench.ui.main_window import TAB_TITLES, MainWindow
+from scanbench.ui.release_watcher import ReleaseWatcher
+from scanbench.ui.update_dialog import UpdateDialog
+
+_RUNNING = Version.parse(__version__)
+NEWER = Version(_RUNNING.major, _RUNNING.minor, _RUNNING.patch + 1)
+
+
+def _install(paths: AppPaths, version: Version) -> None:
+    """Pretend that install.sh activated a release.
+
+    Args:
+        paths: Paths of the installation.
+        version: Release to activate.
+    """
+    layout = paths.release
+    (layout.root / "venvs" / str(version) / "bin").mkdir(parents=True, exist_ok=True)
+    if layout.venv_link.is_symlink():
+        layout.venv_link.unlink()
+    layout.venv_link.symlink_to(f"venvs/{version}")
 
 
 def test_main_window_shows_tabs_and_version(qtbot: QtBot) -> None:
@@ -23,6 +50,85 @@ def test_main_window_shows_tabs_and_version(qtbot: QtBot) -> None:
     assert window.statusBar().currentMessage() == "scanbench 1.0.0"
 
 
+def test_switch_waits_while_busy(qtbot: QtBot) -> None:
+    """A switch offered during a job happens when the job ends.
+
+    Args:
+        qtbot: pytest-qt helper that owns the widgets.
+    """
+    window = MainWindow("1.0.0", confirm=lambda _w, _v: False)
+    qtbot.addWidget(window)
+    requested: list[str] = []
+    window.switch_requested.connect(requested.append)
+    window.set_busy(True)
+    window.offer_switch("2.0.0", automatic=True)
+    assert not requested and "after the current job" in window.statusBar().currentMessage()
+    window.set_busy(False)
+    assert requested == ["2.0.0"]
+    window.offer_switch("3.0.0", automatic=False)
+    assert requested == ["2.0.0"]
+    assert "restart to use it" in window.statusBar().currentMessage()
+
+
+def test_ask_switch_uses_message_box(monkeypatch: pytest.MonkeyPatch, qtbot: QtBot) -> None:
+    """The default confirmation is a Yes/No question.
+
+    Args:
+        monkeypatch: Replaces the message box.
+        qtbot: pytest-qt helper that owns the widgets.
+    """
+    yes = QMessageBox.StandardButton.Yes
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: yes)
+    widget = QWidget()
+    qtbot.addWidget(widget)
+    assert main_window_module.ask_switch(widget, "2.0.0")
+
+
+def test_watcher_reports_newer_release_once(tmp_path: Path, qtbot: QtBot) -> None:
+    """Only a newer release is reported, and only once.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: pytest-qt helper that owns the widgets.
+    """
+    paths = AppPaths({"SCANBENCH_HOME": str(tmp_path)}, tmp_path)
+    watcher = ReleaseWatcher(paths.release.venv_link, Version(1, 0, 0), interval_ms=60_000)
+    seen: list[str] = []
+    watcher.new_release.connect(seen.append)
+    watcher.check()
+    _install(paths, Version(1, 0, 0))
+    watcher.check()
+    _install(paths, Version(1, 1, 0))
+    with qtbot.waitSignal(watcher.new_release, timeout=1000):
+        watcher.check()
+    watcher.check()
+    assert seen == ["1.1.0"]
+    paths.release.venv_link.unlink()
+    paths.release.venv_link.symlink_to("venvs/odd")
+    assert watcher.installed() is None
+
+
+@pytest.mark.parametrize("command,status", [("echo stage output", 0), ("exit 3", 3)])
+def test_update_dialog_streams_output(qtbot: QtBot, command: str, status: int) -> None:
+    """The dialog shows the child's output and its result.
+
+    Args:
+        qtbot: pytest-qt helper that owns the widgets.
+        command: Shell command standing in for the update.
+        status: Expected exit status.
+    """
+    dialog = UpdateDialog(shutil.which("sh") or "/bin/sh", ["-c", command])
+    qtbot.addWidget(dialog)
+    with qtbot.waitSignal(dialog.process.finished, timeout=5000):
+        dialog.start()
+    assert dialog.buttons.isEnabled()
+    if status == 0:
+        assert "stage output" in dialog.log.toPlainText()
+        assert dialog.status.text().startswith("DONE")
+    else:
+        assert "exit status 3" in dialog.status.text()
+
+
 def test_configure_sets_identity(qapp: QApplication) -> None:
     """Name, desktop file name and a non-empty window icon are set.
 
@@ -36,25 +142,73 @@ def test_configure_sets_identity(qapp: QApplication) -> None:
 
 
 @pytest.mark.usefixtures("qapp")
-def test_run_shows_window_and_returns_status(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_release_window_switches_after_update(tmp_path: Path,
+                                              monkeypatch: pytest.MonkeyPatch) -> None:
+    """A release window watches, offers switches and restarts into the new release.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        monkeypatch: Replaces process start, quit and the dialog start.
+    """
+    paths = AppPaths({"SCANBENCH_HOME": str(tmp_path)}, tmp_path)
+    started: list[str] = []
+
+    def start_detached(program: str, args: list[str]) -> tuple[bool, int]:
+        """Record a detached start instead of starting a process.
+
+        Args:
+            program: Program to start.
+            args: Its arguments.
+
+        Returns:
+            Success and a fake process id.
+        """
+        del args
+        started.append(program)
+        return True, 0
+
+    monkeypatch.setattr(QProcess, "startDetached", start_detached)
+    monkeypatch.setattr(QApplication, "quit", lambda: None)
+    monkeypatch.setattr(UpdateDialog, "start", lambda self: None)
+    gui = GuiApplication("1.0.0", paths, is_release=True)
+    window = gui.show()
+    window._confirm = lambda _w, _v: True  # pylint: disable=protected-access
+    assert gui.restart("x") is False
+    dialog = gui.open_update()
+    assert dialog.process.state() == QProcess.ProcessState.NotRunning
+    _install(paths, NEWER)
+    (paths.release.stable_launcher).write_text("", encoding="utf-8")
+    gui._on_new_release(str(NEWER))  # pylint: disable=protected-access
+    assert started == [str(paths.release.stable_launcher)]
+    dialog.succeeded.emit()
+    assert len(started) == 2
+    window.close()
+
+
+@pytest.mark.usefixtures("qapp")
+def test_run_shows_window_and_returns_status(tmp_path: Path,
+                                             monkeypatch: pytest.MonkeyPatch) -> None:
     """run() reuses the existing application and returns the loop status.
 
     Args:
+        tmp_path: Temporary directory of the test.
         monkeypatch: Replaces attributes for the test.
     """
     monkeypatch.setattr(QApplication, "exec", lambda self: 0)
-    gui = GuiApplication("1.0.0")
+    gui = GuiApplication("1.0.0", AppPaths({}, tmp_path), is_release=False)
     assert gui.run(["scanbench"]) == 0
-    assert gui.window is not None and gui.window.isVisible()
+    assert gui.window is not None and gui.window.isVisible() and gui.watcher is None
     gui.window.close()
 
 
 @pytest.mark.usefixtures("qapp")
-def test_run_gui_helper(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_gui_helper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The lazy GUI starter of the CLI runs the application.
 
     Args:
+        tmp_path: Temporary directory of the test.
         monkeypatch: Replaces attributes for the test.
     """
     monkeypatch.setattr(QApplication, "exec", lambda self: 0)
-    assert cli_module._run_gui("1.0.0", ["scanbench"]) == 0  # pylint: disable=protected-access
+    paths = AppPaths({}, tmp_path)
+    assert cli_module._run_gui("1.0.0", paths, False) == 0  # pylint: disable=protected-access

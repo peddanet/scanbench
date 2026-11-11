@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from scanbench.app_info import APP_NAME
+from scanbench.infrastructure.release_layout import ReleaseLayout
 
 
 class AppPaths:
@@ -110,3 +111,31 @@ class AppPaths:
         """
         data = self._xdg("XDG_DATA_HOME", ".local/share")
         return data / "icons" / "hicolor" / "scalable" / "apps"
+
+    @property
+    def release(self) -> ReleaseLayout:
+        """Layout of the installation below the release directory.
+
+        Returns:
+            Versioned venvs, active link, archive store and lock file.
+        """
+        return ReleaseLayout(self.release_dir)
+
+    @property
+    def clone_dir(self) -> Path:
+        """Maintainer's git clone used by ``update`` and ``publish``.
+
+        Returns:
+            ``$SCANBENCH_CLONE`` or ``~/Projects/scanbench``.
+        """
+        value = self._environ.get("SCANBENCH_CLONE", "")
+        return Path(value).expanduser() if value else self._home / "Projects" / "scanbench"
+
+    @property
+    def downloads_dir(self) -> Path:
+        """Folder searched for delivered patch archives.
+
+        Returns:
+            ``$XDG_DOWNLOAD_DIR`` if absolute, else ``~/Downloads``.
+        """
+        return self._xdg("XDG_DOWNLOAD_DIR", "Downloads")

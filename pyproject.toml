@@ -50,6 +50,10 @@ scanbench = ["resources/*.in", "resources/icons/*.svg"]
 load-plugins = ["pylint.extensions.docparams", "pylint.extensions.mccabe"]
 extension-pkg-allow-list = ["PySide6"]
 
+[tool.pylint.typecheck]
+# Qt signals are created at run time; pylint cannot see their methods.
+generated-members = ["connect", "emit", "disconnect"]
+
 [tool.pylint.format]
 max-line-length = 100
 max-module-lines = 400
@@ -75,6 +79,7 @@ default-docstring-type = "google"
 # --------------------------------------------------------------- gate 3: types
 [tool.mypy]
 files = ["src", "tests", "tools"]
+mypy_path = "tests"
 strict = true
 
 # ------------------------------------------------------------ gate 4: security

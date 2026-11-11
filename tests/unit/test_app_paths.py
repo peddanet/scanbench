@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from scanbench.infrastructure.app_paths import AppPaths
+from scanbench.wiring import release_context
 
 HOME = Path("/home/user")
 
@@ -39,3 +40,25 @@ def test_single_root_layout() -> None:
     assert paths.log_dir == Path("/opt/sb.d/logs")
     assert paths.release_dir == Path("/opt/sb.d")
     assert paths.applications_dir == HOME / ".local/share/applications"
+
+
+def test_clone_and_downloads() -> None:
+    """Clone and download folder have defaults and overrides."""
+    paths = AppPaths({}, HOME)
+    assert paths.clone_dir == HOME / "Projects/scanbench"
+    assert paths.downloads_dir == HOME / "Downloads"
+    paths = AppPaths({"SCANBENCH_CLONE": "/src/sb", "XDG_DOWNLOAD_DIR": "/dl"}, HOME)
+    assert paths.clone_dir == Path("/src/sb")
+    assert paths.downloads_dir == Path("/dl")
+    assert paths.release.root == HOME / ".local/share/scanbench"
+
+
+def test_release_context_wiring(tmp_path: Path) -> None:
+    """The composition root wires all adapters on the clone.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    ctx = release_context(AppPaths({}, HOME), tmp_path, out=lambda _line: None)
+    assert ctx.git.root == tmp_path
+    assert ctx.installer.active_version() is None

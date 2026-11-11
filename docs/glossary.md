@@ -33,6 +33,12 @@ values and exceptions.
 
 **Duplex** -- scanning both sides of a sheet.
 
+**flock** -- Linux advisory file lock; the kernel releases it when the process
+ends, so a crashed update leaves no stale lock. [flock(2)](https://man7.org/linux/man-pages/man2/flock.2.html)
+
+**gh (GitHub CLI)** -- command-line client for GitHub: pull requests, workflow
+runs, repository settings. [GitHub CLI manual](https://cli.github.com/manual/)
+
 **git-flow** -- branch model with `main`, `develop` and short-lived feature,
 release and hotfix branches.
 [V. Driessen](https://nvie.com/posts/a-successful-git-branching-model/)
@@ -90,8 +96,15 @@ push. [githooks](https://git-scm.com/docs/githooks)
 **Semantic Versioning** -- `MAJOR.MINOR.PATCH` with defined meaning.
 [semver.org](https://semver.org/)
 
+**Release switching** -- an open scanbench window restarts into a newly
+installed release at a safe moment (no running job).
+
 **Source checkout** -- code run from a git clone instead of an installed
 release; scanbench marks it in its version text.
+
+**Symbolic link** -- file system entry that points to another path; scanbench
+switches its active release by replacing the link `venv` atomically.
+[symlink(7)](https://man7.org/linux/man-pages/man7/symlink.7.html)
 
 **Virtual environment (venv)** -- self-contained Python directory with its own
 packages. [venv](https://docs.python.org/3/library/venv.html)

@@ -1,0 +1,111 @@
+"""Use case ``scanbench update``: apply all pending patch archives and install."""
+
+import shutil
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+
+from scanbench.application.hotfix_release import HotfixRelease
+from scanbench.application.release_context import ReleaseContext
+from scanbench.domain.patch_archive import PatchArchive
+from scanbench.domain.update_error import UpdateError
+from scanbench.domain.version import Version
+from scanbench.infrastructure.archive_finder import ArchiveFinder
+
+Chooser = Callable[[list[PatchArchive]], list[PatchArchive]]
+"""Selects which pending archives to apply (interactive prompt or all)."""
+
+
+class UpdateService:
+    """Find pending archives, release them one by one, install the newest.
+
+    Versions are applied strictly in ascending order, because every patch is
+    based on the release before it. Two updates must not run in parallel;
+    the lock enforces that.
+    """
+
+    def __init__(self, ctx: ReleaseContext, finder: ArchiveFinder, choose: Chooser,
+                 lock: AbstractContextManager[object]) -> None:
+        """Store the collaborators.
+
+        Args:
+            ctx: Shared release collaborators.
+            finder: Finder of archives in the download folder.
+            choose: Selection of the archives to apply.
+            lock: Lock held for the whole update.
+        """
+        self._ctx = ctx
+        self._finder = finder
+        self._choose = choose
+        self._lock = lock
+
+    def _released(self) -> Version | None:
+        """Check the clone and return the newest released version.
+
+        Returns:
+            The newest tag on GitHub, or None.
+
+        Raises:
+            UpdateError: If the clone or its remote is missing.
+        """
+        git = self._ctx.git
+        if not git.is_clone():
+            raise UpdateError(f"no git clone at {git.root}; set SCANBENCH_CLONE or --clone")
+        if not git.has_remote():
+            raise UpdateError("the clone has no remote 'origin'; run 'scanbench publish' first")
+        self._ctx.progress.step("read release state from GitHub")
+        git.fetch()
+        released = self._ctx.versions.released_version()
+        self._ctx.progress.info(f"released: {released or 'nothing'}; "
+                                f"active here: {self._ctx.installer.active_version() or 'none'}")
+        return released
+
+    def _install(self, target: Version | None) -> None:
+        """Install the target release unless it is already active.
+
+        Args:
+            target: Newest released version.
+        """
+        ctx = self._ctx
+        if target is None or ctx.installer.active_version() == target:
+            return
+        ctx.progress.step(f"install {target.tag} into a new venv and switch to it")
+        ctx.installer.install(target)
+        ctx.progress.info("running scanbench windows switch at their next idle moment")
+
+    def _store(self, applied: list[PatchArchive]) -> None:
+        """Move applied archives out of the download folder.
+
+        Args:
+            applied: Archives that became releases.
+        """
+        store = self._ctx.paths.release.archive_store
+        store.mkdir(parents=True, exist_ok=True)
+        for archive in applied:
+            shutil.move(str(archive.path), str(store / archive.path.name))
+            self._ctx.progress.info(f"archived {archive.path.name} -> {store}")
+
+    def run(self) -> int:
+        """Execute the update and print the summary, also on failure.
+
+        Returns:
+            0 on success, 1 on failure.
+        """
+        progress = self._ctx.progress
+        progress.header("scanbench update")
+        try:
+            with self._lock:
+                released = self._released()
+                pending = self._finder.pending(released)
+                progress.info("pending: " + (", ".join(str(a.version) for a in pending)
+                                             or "none"))
+                chosen = self._choose(pending) if pending else []
+                for archive in chosen:
+                    HotfixRelease(self._ctx).run(archive)
+                newest = chosen[-1].version if chosen else released
+                self._install(newest)
+                self._store(chosen)
+        except UpdateError as exc:
+            progress.summary(f"FAILED: {exc}")
+            return 1
+        progress.summary(f"DONE: scanbench {newest or 'not released yet'} is current")
+        return 0

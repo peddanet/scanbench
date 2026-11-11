@@ -7,7 +7,11 @@ import pytest
 
 import scanbench
 from scanbench import cli as cli_module
+from scanbench.application.first_publication import FirstPublication
+from scanbench.application.update_service import UpdateService
 from scanbench.cli import Cli
+from scanbench.domain.patch_archive import PatchArchive
+from scanbench.domain.version import Version
 from scanbench.infrastructure.app_paths import AppPaths
 from scanbench.infrastructure.version_info import VersionInfo
 
@@ -18,7 +22,8 @@ class Recorder:
     def __init__(self) -> None:
         """Start with empty records."""
         self.lines: list[str] = []
-        self.gui_calls: list[tuple[str, list[str]]] = []
+        self.gui_calls: list[tuple[str, bool]] = []
+        self.answers: list[str] = []
 
     def out(self, line: str) -> None:
         """Record one printed line.
@@ -28,24 +33,38 @@ class Recorder:
         """
         self.lines.append(line)
 
-    def gui(self, version: str, argv: list[str]) -> int:
+    def gui(self, version: str, paths: AppPaths, is_release: bool) -> int:
         """Record a GUI start and report success.
-
-        Returns:
-            Always 0.
 
         Args:
             version: Version text passed to the GUI.
-            argv: Command line passed to the GUI.
+            paths: Paths passed to the GUI (not recorded).
+            is_release: Whether an installed release runs.
+
+        Returns:
+            Always 0.
         """
-        self.gui_calls.append((version, argv))
+        del paths
+        self.gui_calls.append((version, is_release))
         return 0
+
+    def ask(self, question: str) -> str:
+        """Answer a question with the next prepared answer.
+
+        Args:
+            question: The question.
+
+        Returns:
+            The answer.
+        """
+        self.lines.append(question)
+        return self.answers.pop(0)
 
 
 def _cli(tmp_path: Path, rec: Recorder) -> Cli:
     """Create a Cli writing below tmp_path."""
     version = VersionInfo(tmp_path / "site-packages" / "scanbench", "1.0.0")
-    return Cli(AppPaths({}, tmp_path), version, rec.gui, rec.out)
+    return Cli(AppPaths({}, tmp_path), version, rec.gui, rec.out, rec.ask)
 
 
 def test_default_and_gui_command_start_gui(tmp_path: Path) -> None:
@@ -58,7 +77,7 @@ def test_default_and_gui_command_start_gui(tmp_path: Path) -> None:
     cli = _cli(tmp_path, rec)
     assert cli.run([]) == 0
     assert cli.run(["gui"]) == 0
-    assert rec.gui_calls == [("1.0.0", ["scanbench"])] * 2
+    assert rec.gui_calls == [("1.0.0", True)] * 2
 
 
 def test_doctor_prints_report(tmp_path: Path) -> None:
@@ -92,7 +111,7 @@ def test_desktop_entry_points_into_the_venv(tmp_path: Path) -> None:
     Args:
         tmp_path: Temporary directory of the test.
     """
-    _cli(tmp_path, Recorder()).run(["install-desktop"])
+    _cli(tmp_path, Recorder()).run(["install-desktop"])  # SCANBENCH_HOME unset in tests
     desktop = next((tmp_path / ".local/share/applications").glob("*.desktop"))
     assert f"Exec={Path(sys.prefix) / 'bin' / 'scanbench'}\n" in desktop.read_text(encoding="utf-8")
 
@@ -132,4 +151,64 @@ def test_main_starts_gui(monkeypatch: pytest.MonkeyPatch) -> None:
     rec = Recorder()
     monkeypatch.setattr(cli_module, "_run_gui", rec.gui)
     assert cli_module.main([]) == 0
-    assert [argv for _, argv in rec.gui_calls] == [["scanbench"]]
+    assert [release for _, release in rec.gui_calls] == [False]
+
+
+def test_update_and_publish_dispatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """update and publish build their workflows and return their status.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        monkeypatch: Replaces the workflow runs.
+    """
+    monkeypatch.setattr(UpdateService, "run", lambda self: 3)
+    monkeypatch.setattr(FirstPublication, "run", lambda self: 4)
+    cli = _cli(tmp_path, Recorder())
+    assert cli.run(["update", "--yes", "--clone", str(tmp_path)]) == 3
+    assert cli.run(["publish", "--repo", "o/r"]) == 4
+
+
+def _pending(*versions: str) -> list[PatchArchive]:
+    """Create archives for the chooser tests.
+
+    Args:
+        *versions: Version texts.
+
+    Returns:
+        The archives.
+    """
+    return [PatchArchive(Version.parse(v), Path(f"scanbench-{v}-patch.tar.gz"), 0)
+            for v in versions]
+
+
+def test_chooser(tmp_path: Path) -> None:
+    """--yes takes all, --upto limits, otherwise the user is asked.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    rec = Recorder()
+    cli = _cli(tmp_path, rec)
+    pending = _pending("0.1.1", "0.1.2", "0.1.3")
+    choose = cli._choose  # pylint: disable=protected-access
+    parse = cli.parser().parse_args
+    assert len(choose(parse(["update", "--yes"]))(pending)) == 3
+    assert len(choose(parse(["update", "--upto", "0.1.2"]))(pending)) == 2
+    rec.answers = ["0.1.1", ""]
+    assert len(choose(parse(["update"]))(pending)) == 1
+    assert len(choose(parse(["update"]))(pending)) == 3
+    assert rec.lines[-1] == "Apply up to version [0.1.3]: "
+
+
+def test_install_desktop_exec_and_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--exec and SCANBENCH_HOME end up in the Exec key.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        monkeypatch: Sets SCANBENCH_HOME.
+    """
+    monkeypatch.setenv("SCANBENCH_HOME", "/opt/sb.d")
+    _cli(tmp_path, Recorder()).run(["install-desktop", "--exec", "/opt/sb.d/venv/bin/scanbench"])
+    desktop = next((tmp_path / ".local/share/applications").glob("*.desktop"))
+    text = desktop.read_text(encoding="utf-8")
+    assert "Exec=env SCANBENCH_HOME=/opt/sb.d /opt/sb.d/venv/bin/scanbench\n" in text

@@ -67,17 +67,36 @@ git switch develop && pr=$(gh pr create --base develop --head main \
 The `grep -q` guard makes the tag impossible if the version line does not
 match.
 
-## Patch delivery by the assistant
+## Patch delivery and `scanbench update`
 
 The assistant works in its own clone, commits with the author's GitHub
 noreply identity, runs `tools/check.sh`, and delivers `git format-patch`
-output as `scanbench-X.Y.Z-patch.tar.gz`. It never pushes. The owner applies
-the series on a feature or hotfix branch with `git am` and opens the pull
-request. A generic `scanbench update` command that automates this (as in
-mediatools) is planned once releases exist.
+output as `scanbench-X.Y.Z-patch.tar.gz`, always based on the newest release.
+It never pushes.
 
-## First publication (once)
+The maintainer turns delivered archives into releases with
+`scanbench update` (terminal) or the menu **scanbench > Update ...**. The
+steps per version are listed in the user documentation,
+[Updating](../user/updating.md#maintainer-release-delivered-patches-with-one-command).
+Deliveries go through the hotfix path even for small additions; strictly by
+Semantic Versioning some of them are minor increments. This is a deliberate
+simplification for a single maintainer.
 
-How release 0.1.0 was brought to GitHub is described in the delivery notes of
-that release; afterwards the normal cycle above applies. Branch protection:
-[CI](ci.md#branch-protection).
+| Design point | Implementation |
+|---|---|
+| order | archives are applied strictly in ascending version order |
+| local gates | run in `<clone>/.venv`, created and refreshed by the update; the push afterwards skips the pre-push hook because the same commit was just checked |
+| resumable | each step checks the state first (version on `origin/main`, existing tag, open pull request, merged state) |
+| network | reading `git` and `gh` calls are retried 5 times, 10 s apart |
+| parallel runs | prevented by an exclusive lock on `<release dir>/update.lock` |
+| after the update | newest release installed into its own venv, link switched, archives moved to `<release dir>/releases` |
+
+The equivalent manual commands are the feature-release and tag blocks above.
+
+## First publication: `scanbench publish`
+
+Once, on a fresh clone with the first patch series applied: gates, `gh repo
+create`, push `main` and `develop`, merge commits only, first CI run on
+`develop` (registers the check `gates`), branch protection, tag on `main`,
+installation. Manual equivalent: [CI, branch protection](ci.md#branch-protection)
+and the tag block above.
