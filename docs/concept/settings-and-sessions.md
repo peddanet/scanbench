@@ -71,6 +71,7 @@ It rests on three ideas:
 | undo and redo buttons for all frame edits | 0.2.3 |
 | exact values per photo (angle, width, height) | 0.2.3 |
 | preview scan at 75 to 150 dpi, then a high-resolution scan of only the area around the photos | 0.2.4 |
+| live scan progress: image building up, progress bar, page counter, times; cancel | 0.2.4 |
 
 ### 1.4 What this concept does not add
 
@@ -190,6 +191,34 @@ contains the exact external command, e.g. the `scanimage` arguments and the
 `gs` parameters. **Show commands** displays them; **Copy as shell script**
 exports a runnable script in the style of the scanner reference. This makes
 the application's work traceable and reproducible without the GUI.
+
+### 3.4 Progress while scanning and processing
+
+Requested on 2026-11-12: the scan must be visible while it runs, in the
+preview scan and in the normal scan, with a progress bar and figures in the
+status bar.
+
+| Element | Content |
+|---|---|
+| live image | the page builds up line by line in the preview while the scanner delivers it |
+| progress bar | progress of the current page in percent |
+| status bar | `Page 3 of 10` (flatbed, known count) or `Page 3 of ?` (feeder, count unknown); elapsed time, estimated remaining time of the page, resolution, size of the page so far |
+| processing | separate progress for detection, cropping and PDF output, e.g. `Saving photo 2 of 4` |
+| cancel | a **Cancel** button stops the scan; already finished pages stay |
+
+Technical basis, checked with `scanimage` and the SANE test device
+(2026-11-12):
+
+| Fact | Use |
+|---|---|
+| `scanimage --progress` writes `Progress: 12.4%` lines to the error output | progress bar of the current page |
+| in batch mode it writes `Scanning page N` and `Scanned page N.` | page counter |
+| with `--format=pnm` the image is written as an uncompressed stream (`P6` header, then the rows) | rows can be shown as they arrive; scanbench converts to PNG afterwards |
+
+Open point, to be measured on the real device: network backends may receive
+a page only as a whole (eSCL and WSD transfer finished image files). Then
+the live image appears at once at the end of the page and the percentage
+jumps; the page counter and the elapsed time still work.
 
 ## 4. Configuration model
 
