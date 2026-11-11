@@ -29,6 +29,9 @@ The complete user documentation in one page. Terms are explained in the
 
 ![Photo-album tab with a selected frame and its grips](img/photo-frame-editor.png)
 
+The screenshots show the real program with simulated scanner input from
+copyright-free sample photos ([sources](img/samples/SOURCES.md)).
+
 ## 2. Installation
 
 scanbench installs per user into its own virtual environment. Only the system
@@ -248,6 +251,8 @@ album/
   scans/               full-page scans (only with "Keep full-page scans")
 ~~~
 
+![A flatbed scan and the photos saved from it](img/photo-album-result.png)
+
 **Print saved photos ...** prints the photos of the last confirmed page with
 "Scale to fit the page" preselected.
 
@@ -266,6 +271,8 @@ scanbench printers
 | Copies | 1 to 99 |
 | Scale to fit the page | `-o fit-to-page`; preselected for photos |
 | Driver options | one choice per option of the driver (PPD), important ones first: paper source (`InputSlot`), media type, page size, colour, quality, duplex |
+
+![Print dialog with example driver options](img/print-dialog.png)
 
 Only options you change are sent; everything else keeps the printer defaults.
 

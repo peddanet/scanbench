@@ -45,6 +45,20 @@ docs/concept/           design documents and revisions, lead document README.md
 10. **Same pull request.** A change that users or developers notice updates
     the documentation in the pull request that makes the change.
 
+## Screenshots
+
+The screenshots in `docs/user/img/` are made by the real program with
+simulated scanner input; regenerate them after visible changes (normal user,
+development venv active, from the repository root):
+
+~~~bash
+QT_QPA_PLATFORM=offscreen python tools/screenshots.py
+~~~
+
+`QT_QPA_PLATFORM=offscreen` lets Qt draw without a display. The sample photos
+and their licences are listed in `docs/user/img/samples/SOURCES.md`; only
+copyright-free pictures may be added there, and no private photos.
+
 ## PDF documents
 
 Concept and handover documents are kept as Markdown and built to PDF with
