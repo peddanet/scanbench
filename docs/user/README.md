@@ -133,15 +133,29 @@ All commands run as normal user.
 | Logs: `scanbench.log` (start, end, every status text, errors with traceback; rotated at 1 MB, 5 files) and `crash.log` (call stacks after a hard crash) | `~/.local/state/scanbench/logs` | `$SCANBENCH_HOME/logs` |
 | Sessions and the handover to a new release | `~/.local/share/scanbench/sessions` | `$SCANBENCH_HOME/sessions` |
 | Raw scans of the running session, deleted on exit | `~/.cache/scanbench/session-*` | `$SCANBENCH_HOME/cache/session-*` |
+| Scanners and their options from the last run (`devices.json`; may be deleted, it is rebuilt) | `~/.cache/scanbench` | `$SCANBENCH_HOME/cache` |
 | Installed releases | `~/.local/share/scanbench/venvs/X.Y.Z`, active one linked as `venv` | `$SCANBENCH_HOME/venvs/X.Y.Z` |
 | Applied patch archives | `~/.local/share/scanbench/releases` | `$SCANBENCH_HOME/releases` |
 
 ## 4. Choosing the scanner
 
-The bar above the tabs lists every scanner SANE can reach. scanbench searches
-once at start; **Search scanners** searches again (network scanners can take a
-few seconds). Sources, colour modes and resolutions in both tabs follow the
-selected scanner.
+The bar above the tabs lists every scanner SANE can reach. Sources, colour
+modes and resolutions in both tabs follow the selected scanner.
+
+Searching takes several seconds with network scanners, so scanbench does not
+wait for it:
+
+- At start the bar shows at once the scanners of the last run, with the last
+  used one selected and its remembered options; you can scan right away. The
+  status bar says "… known from the last run; searching in the background".
+- The search runs in the background. Its result replaces the list; the
+  selected scanner stays selected. A scanner that is no longer found is
+  named in the status bar.
+- If you choose a scanner before the search has finished, scanbench reads its
+  options at once; this also checks that it can be reached ("Scanner not
+  reachable: …" otherwise).
+- **Search scanners** searches again and reads the options of the selected
+  scanner anew (e.g. after a firmware update).
 
 Without hardware, try SANE's virtual scanner (normal user, this start only):
 
