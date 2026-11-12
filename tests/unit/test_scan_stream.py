@@ -52,6 +52,19 @@ def test_pnm_assembler_formats() -> None:
     assert line_art.image()[0, :, 0].tolist() == [0] + [255] * 8 + [0]
 
 
+def test_pnm_preview_is_reduced() -> None:
+    """The live preview reads every n-th row and column only."""
+    big = PnmAssembler()
+    big.feed(b"P6\n3200 10\n255\n" + bytes([1, 2, 3]) * 3200 * 4)
+    small = big.preview(1600)
+    assert small.shape == (5, 1600, 3)
+    assert small[0, 0].tolist() == [1, 2, 3] and small[2, 0].tolist() == [255, 255, 255]
+    grey = PnmAssembler()
+    grey.feed(b"P5 4 2 255\n" + bytes([7, 8, 9, 10]))
+    assert grey.preview()[0, :, 0].tolist() == [7, 8, 9, 10]
+    assert PnmAssembler().preview().shape == (1, 1, 3)
+
+
 def test_progress_parser() -> None:
     """Progress, page lines, other messages and partial lines."""
     parser = ProgressParser()

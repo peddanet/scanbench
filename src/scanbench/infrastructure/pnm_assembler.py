@@ -66,14 +66,51 @@ class PnmAssembler:
         if self._offset < 0:
             return np.full((1, 1, 3), 255, dtype=np.uint8)
         rows = self.rows()
-        raw = np.frombuffer(bytes(self.data[self._offset:self._offset
-                                            + rows * self._row_bytes()]), dtype=np.uint8)
+        raw = np.frombuffer(memoryview(self.data)[self._offset:self._offset
+                                                  + rows * self._row_bytes()], dtype=np.uint8)
+        if self.kind == "P6" and rows == self.height:
+            return raw.reshape(rows, self.width, 3)       # complete: no copy
         result = np.full((self.height, self.width, 3), 255, dtype=np.uint8)
+        result[:rows] = self._decode(raw, rows)
+        return result
+
+    def _decode(self, raw: NDArray[np.uint8], rows: int) -> NDArray[np.uint8]:
+        """Turn raw rows into RGB rows.
+
+        Args:
+            raw: Bytes of complete rows.
+            rows: Number of rows.
+
+        Returns:
+            Rows x width x 3 array (grey and line art repeated on the channels).
+        """
         if self.kind == "P6":
-            result[:rows] = raw.reshape(rows, self.width, 3)
-        elif self.kind == "P5":
-            result[:rows] = raw.reshape(rows, self.width)[:, :, None]
-        else:   # P4: 1 = black
-            bits = np.unpackbits(raw.reshape(rows, -1), axis=1)[:, :self.width]
-            result[:rows] = ((1 - bits) * 255).astype(np.uint8)[:, :, None]
+            return raw.reshape(rows, self.width, 3)
+        if self.kind == "P5":
+            return np.repeat(raw.reshape(rows, self.width)[:, :, None], 3, axis=2)
+        bits = np.unpackbits(raw.reshape(rows, -1), axis=1)[:, :self.width]   # P4: 1 = black
+        return np.repeat(((1 - bits) * 255).astype(np.uint8)[:, :, None], 3, axis=2)
+
+    def preview(self, max_side: int = 1600) -> NDArray[np.uint8]:
+        """Return a reduced copy of the received part for the live display.
+
+        Only every n-th row is read, so the cost does not grow with the full
+        image (a 2400 dpi area can be close to a gigabyte).
+
+        Args:
+            max_side: Longest side of the result in pixels.
+
+        Returns:
+            Reduced RGB image; missing rows are white.
+        """
+        if self._offset < 0:
+            return np.full((1, 1, 3), 255, dtype=np.uint8)
+        step = max(1, -(-max(self.width, self.height) // max_side))
+        result = np.full((-(-self.height // step), -(-self.width // step), 3), 255,
+                         dtype=np.uint8)
+        size, data = self._row_bytes(), memoryview(self.data)
+        for index, row in enumerate(range(0, self.rows(), step)):
+            start = self._offset + row * size
+            line = np.frombuffer(data[start:start + size], dtype=np.uint8)
+            result[index] = self._decode(line, 1)[0, ::step]
         return result

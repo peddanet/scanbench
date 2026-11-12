@@ -21,6 +21,13 @@ All notable changes are documented here. The format follows
 
 - The frame editor's Esc (end draw mode) is active only in draw mode.
 
+### Fixed
+
+- Live image while scanning: only a reduced copy (longest side 1600 pixels,
+  every n-th row read) goes to the display; before, the whole image received
+  so far was copied twice every 0.4 s, close to a gigabyte per update at
+  2400 dpi. The finished page is saved without extra copies.
+
 ## [0.2.4] - 2026-11-12
 
 ### Changed
