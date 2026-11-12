@@ -1,11 +1,12 @@
 """What every scanning tab needs from its surroundings (Parameter Object)."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from scanbench.infrastructure.cups_client import CupsClient
 from scanbench.ui.device_bar import DeviceBar
 from scanbench.ui.dialogs import Dialogs
 from scanbench.ui.progress_panel import ProgressPanel
+from scanbench.ui.tab_settings import SettingsHub
 from scanbench.ui.task_runner import TaskRunner
 
 
@@ -19,6 +20,7 @@ class TabContext:
         cups: CUPS adapter for printing.
         dialogs: Modal questions (file, folder, printer).
         progress: Progress display in the status bar.
+        settings: Settings shared by the tabs (layers, files, presets).
     """
 
     devices: DeviceBar
@@ -26,3 +28,4 @@ class TabContext:
     cups: CupsClient
     dialogs: Dialogs
     progress: ProgressPanel
+    settings: SettingsHub = field(default_factory=SettingsHub)

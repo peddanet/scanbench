@@ -16,7 +16,8 @@ The complete user documentation in one page. Terms are explained in the
 7. [Printing](#7-printing)
 8. [Updating](#8-updating)
 9. [Troubleshooting](#9-troubleshooting)
-10. [References](#10-references)
+10. [Settings and presets](#10-settings-and-presets)
+11. [References](#11-references)
 
 ## 1. Overview
 
@@ -53,7 +54,7 @@ sudo apt install sane-utils sane-airscan ghostscript cups-client
 Privilege: `sudo` from your user context, because packages are written below
 `/usr`; a root shell is not needed. Package names are those of Debian and
 Ubuntu (including Pop!_OS). The Python libraries (Qt, OpenCV, NumPy, Pillow,
-img2pdf) come with `install.sh` into the release environment.
+img2pdf, tomli-w) come with `install.sh` into the release environment.
 
 ### 2.2 Install a release
 
@@ -435,6 +436,8 @@ again; it continues where it stopped.
 |---|---|
 | several files for one version | from 0.2.5 on, deliveries are numbered: `scanbench-X.Y.Z-patch-N.tar.gz`; the highest N wins, then the most recently saved browser copy (`… (1).tar.gz`); older names without N count as N = 0 |
 | a corrected delivery after a failed run | the local branch `hotfix/X.Y.Z` of the older delivery is discarded and rebuilt (the update remembers the SHA-256 of the applied archive); if that branch is already on GitHub, the update stops with instructions instead |
+| several versions waiting | all are listed in the order they are applied, e.g. `1. 0.2.7  scanbench-0.2.7-patch-1.tar.gz  (built on 0.2.6)`; the question `Apply all up to 0.2.8? [Enter = all, or the version to stop at]` applies every listed version up to the one you name |
+| a version missing in between | from 0.3.0 on, each archive names the version it was built on (file `BASE`). Before changing anything the update checks the chain and stops with e.g. `0.2.8 is built on 0.2.7, which is neither released nor in the download folder; download scanbench-0.2.7-patch-*.tar.gz …`. Version numbers may skip: what counts is the named base, not the number before |
 | old files in `~/Downloads` | at every run, archives of released versions and older deliveries or copies are moved to `<installation>/releases`; nothing is deleted, each move is printed |
 
 | Option | Meaning |
@@ -478,10 +481,86 @@ tail -n 80 "${SCANBENCH_HOME:-$HOME/.local/state/scanbench}/logs/crash.log"
 | an option such as the CD/DVD tray is missing | the queue uses a driver without it (often IPP Everywhere) |
 | no icon in dock or menu | run `scanbench install-desktop` again; on Wayland the window is matched by the app ID `io.github.peddanet.scanbench`, so the desktop file name must stay unchanged |
 
-## 10. References
+## 10. Settings and presets
+
+Every option of a tab is shown with a small **badge** that says where its
+value comes from, and a reset button **↺**:
+
+| Badge | Meaning |
+|---|---|
+| built-in | the value scanbench starts with |
+| default | your saved default (**Save as default**) |
+| preset | the value of the chosen preset |
+| changed | changed in this run (bold); **↺** brings back the value below it |
+| not offered | the scanner does not offer the wanted value (e.g. 1200 dpi); the nearest one is used |
+
+The line above the scan or page area sums up the effective values, e.g.
+`Color · 600 dpi · PNG (lossless) · fit frames to photo sizes · preset: Album
+· 1 changed`. Options beyond the basic ones are in collapsible sections below
+the form (**Frames**, **Output**); a section title shows how many of its
+values are not built-in, e.g. `Output  (1 set)`.
+
+**Presets** are named sets of all options of one tab:
+
+- **Save as preset ...** asks for a name and saves the current values of the
+  tab; the preset is then chosen.
+- Choosing a preset sets all options of the tab at once and drops the
+  changes of this run; `(no preset)` goes back to your defaults.
+- **Save as default** makes the current values of the tab the start values;
+  a chosen preset is then unselected, because it would hide them.
+- The album folder is always remembered at once, as before; presets do not
+  contain it.
+
+Files (normal user; editable by hand, format [TOML](https://toml.io/en/v1.0.0)):
+
+| File | Content |
+|---|---|
+| `~/.config/scanbench/settings.toml` (with `SCANBENCH_HOME`: `$SCANBENCH_HOME/config/settings.toml`) | your defaults |
+| `…/config/presets/<tab>-<name>.toml` | one preset each |
+
+~~~toml
+schema = 1
+name = "Album 1200 dpi JPEG"     # presets only
+
+[photos]
+resolution = 1200
+format = "JPEG"
+jpeg_quality = 90
+~~~
+
+Keys scanbench does not know (e.g. written by a newer version) are kept when
+the file is written again. An invalid value is named in the status bar and in
+the log with file, key and reason, e.g. `settings.toml: photos.jpeg_quality =
+120 must be 70 to 95; the built-in value is used`. The album folder of
+`settings.json` (0.2.x) is taken over once; the old file is renamed to
+`settings.json.migrated`.
+
+All options (generated from the program, `tools/settings_table.py`):
+
+<!-- settings-table:start -->
+| Tab | Setting | Section | Values | Built-in | File key | Meaning |
+|---|---|---|---|---|---|---|
+| documents | Source | Basic | Flatbed / Feeder, one side / Feeder, both sides (as offered by the scanner) | Flatbed | `documents.source` | Where the paper is taken from: flatbed or document feeder (one or both sides). |
+| documents | Colour | Basic | Color / Gray / Black and white (as offered by the scanner) | Color | `documents.colour` | Colour, grey or black and white. Grey and black and white give smaller files. |
+| documents | Resolution | Basic | as offered by the scanner (dpi) | 300 dpi | `documents.resolution` | Dots per inch. 300 dpi is enough for text; doubling it quadruples pixels, memory and scan time. |
+| documents | Paper | Basic | A4 / A5 / A6 / Letter | A4 | `documents.paper` | Scanned area. The flatbed is at most 215.9 mm wide. |
+| documents | PDF size | Basic | Original (lossless) / Screen (72 dpi) / E-book (150 dpi) / Printer (300 dpi) / Prepress (300 dpi, best) | E-book (150 dpi) | `documents.pdf_size` | Reduction of the saved PDF with Ghostscript, always from the lossless pages. E-book is small and readable; Original keeps every pixel. |
+| photos | Colour | Basic | Color / Gray / Black and white (as offered by the scanner) | Color | `photos.colour` | Colour or grey for the photos. |
+| photos | Resolution | Basic | as offered by the scanner (dpi) | 600 dpi | `photos.resolution` | Dots per inch of the photo scan. 600 dpi keeps the detail of paper prints; 1200 dpi quadruples size and time, mostly without gain. |
+| photos | Format | Basic | PNG (lossless) / JPEG (smaller) | PNG (lossless) | `photos.format` | PNG keeps every pixel; JPEG files are about five times smaller. |
+| photos | Album | Basic | folder | ~/Pictures/scanbench-album | `photos.album` | Folder of the saved photos; numbering continues after the last photo there. |
+| photos | Fit frames to photo sizes | Basic | on / off | on | `photos.snap` | Frames that nearly match a photo size (10 x 15 cm, 9 x 13 cm ...) get its exact size; they never grow more than 1 mm per side. |
+| photos | Keep full-page scans | Basic | on / off | off | `photos.keep_scans` | Also save each full flatbed scan in the album folder (subfolder scans). |
+| photos | Size tolerance | Frames | 2 to 10 % | 6 % | `photos.snap_tolerance` | How far a frame may differ from a photo size, per side, to be fitted to it. |
+| photos | JPEG quality | Output | 70 to 95 | 92 | `photos.jpeg_quality` | Higher means fewer artefacts and larger files; 92 is visually lossless. Only for the format JPEG. |
+| photos | PNG compression | Output | 0 to 9 | 6 | `photos.png_compression` | 0 = fastest, 9 = smallest. Always lossless; only time and size change. Only for the format PNG. |
+<!-- settings-table:end -->
+
+## 11. References
 
 - [scanimage(1)](https://manpages.debian.org/scanimage) and [sane-test(5)](https://manpages.debian.org/sane-test)
 - [img2pdf](https://gitlab.mister-muffin.de/josch/img2pdf)
+- [TOML 1.0](https://toml.io/en/v1.0.0), [tomllib](https://docs.python.org/3/library/tomllib.html) (reading) and [Tomli-W](https://pypi.org/project/tomli-w/) (writing)
 - [Ghostscript: PDF output and PDFSETTINGS](https://ghostscript.readthedocs.io/en/latest/VectorDevices.html)
 - [CUPS: command-line printing and options](https://openprinting.github.io/cups/doc/options.html)
 - [OpenCV: minAreaRect and contour functions](https://docs.opencv.org/4.x/d3/dc0/group__imgproc__shape.html)

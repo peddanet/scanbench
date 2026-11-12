@@ -2,7 +2,7 @@
 
 import os
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from scanbench.application.document_session import DocumentSession
@@ -15,7 +15,7 @@ from scanbench.infrastructure.image_store import ImageStore
 from scanbench.infrastructure.pdf_writer import PdfWriter
 from scanbench.infrastructure.photo_detector import PhotoDetector
 from scanbench.infrastructure.scanimage_backend import ScanimageBackend
-from scanbench.infrastructure.settings_store import SettingsStore
+from scanbench.infrastructure.settings_files import SettingsFiles
 from scanbench.infrastructure.shell import Shell
 from scanbench.ui.device_bar import DeviceBar
 from scanbench.ui.dialogs import Dialogs, print_asker
@@ -23,6 +23,7 @@ from scanbench.ui.document_tab import DocumentTab
 from scanbench.ui.photo_tab import PhotoTab
 from scanbench.ui.progress_panel import ProgressPanel
 from scanbench.ui.tab_context import TabContext
+from scanbench.ui.tab_settings import SettingsHub
 from scanbench.ui.task_runner import TaskRunner
 
 TEST_DEVICE_VARIABLE = "SCANBENCH_TEST_DEVICE"
@@ -43,6 +44,7 @@ class Workbench:
         photos: Photo-album tab.
         progress: Progress display for the status bar.
         work: Temporary directory with the raw scans of this session.
+        problems: Invalid values found in the settings files at start.
     """
 
     runner: TaskRunner
@@ -51,6 +53,7 @@ class Workbench:
     photos: PhotoTab
     progress: ProgressPanel
     work: tempfile.TemporaryDirectory[str]
+    problems: list[str] = field(default_factory=list)
 
     def handover(self, tab: int) -> Handover:
         """Collect the open work for the next release.
@@ -97,8 +100,8 @@ def build_workbench(paths: AppPaths, include_test: bool | None = None) -> Workbe
     work = tempfile.TemporaryDirectory(  # pylint: disable=consider-using-with
         prefix="session-", dir=paths.cache_dir)
     work_dir = Path(work.name)
-    for sub in ("documents", "photos"):
-        (work_dir / sub).mkdir()
+    (work_dir / "documents").mkdir()
+    (work_dir / "photos").mkdir()
     shell = Shell(work_dir)
     scanner, store, cups = ScanimageBackend(shell), ImageStore(), CupsClient(shell)
     runner = TaskRunner()
@@ -106,11 +109,12 @@ def build_workbench(paths: AppPaths, include_test: bool | None = None) -> Workbe
         include_test = os.environ.get(TEST_DEVICE_VARIABLE) == "1"
     devices = DeviceBar(scanner, runner, include_test,
                         DeviceCache(paths.cache_dir / DEVICE_CACHE))
-    progress = ProgressPanel()
-    context = TabContext(devices, runner, cups, Dialogs(print_asker(cups)), progress)
+    hub = SettingsHub(files=SettingsFiles(paths.config_dir))
+    problems = hub.load()                        # before the tabs: they show the values
+    context = TabContext(devices, runner, cups, Dialogs(print_asker(cups)), ProgressPanel(),
+                         hub)
     documents = DocumentTab(
         context, DocumentSession(scanner, store, PdfWriter(shell), work_dir / "documents"))
     photos = PhotoTab(
-        context, PhotoSession(scanner, PhotoDetector(), store, work_dir / "photos"),
-        SettingsStore(paths.config_dir / "settings.json"))
-    return Workbench(runner, devices, documents, photos, progress, work)
+        context, PhotoSession(scanner, PhotoDetector(), store, work_dir / "photos"))
+    return Workbench(runner, devices, documents, photos, context.progress, work, problems)

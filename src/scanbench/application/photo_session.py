@@ -10,7 +10,7 @@ from pathlib import Path
 from scanbench.domain import frame_edit
 from scanbench.domain.crop_region import CropRegion
 from scanbench.domain.device_options import DeviceOptions
-from scanbench.domain.image_format import ImageFormat
+from scanbench.domain.image_format import ImageEncoding, ImageFormat
 from scanbench.domain.paper_format import PHOTO_PRESETS
 from scanbench.domain.scan_area import ScanArea
 from scanbench.domain.scan_error import ScanError
@@ -26,6 +26,9 @@ PREVIEW_MIN_DPI = 75
 
 AREA_MARGIN_MM = 3.0
 """Margin around the frames when only their area is scanned."""
+
+SNAP_TOLERANCE = 0.06
+"""Default deviation per side within which a frame is fitted to a photo size."""
 
 INDEX_FILE = "album.json"
 """Album index: one entry per photo with its source scan and region."""
@@ -58,11 +61,24 @@ class AlbumOptions:
         folder: Album folder.
         image_format: PNG (lossless) or JPEG.
         keep_scans: Also keep the full-frame scans in ``scans/``.
+        jpeg_quality: JPEG quality 70 to 95.
+        png_compression: PNG compression level 0 to 9.
     """
 
     folder: Path
     image_format: ImageFormat = ImageFormat.PNG
     keep_scans: bool = False
+    jpeg_quality: int = 92
+    png_compression: int = 6
+
+    @property
+    def encoding(self) -> ImageEncoding:
+        """Return how the photo files are written.
+
+        Returns:
+            Format and quality.
+        """
+        return ImageEncoding(self.image_format, self.jpeg_quality, self.png_compression)
 
 
 class PhotoSession:
@@ -109,14 +125,15 @@ class PhotoSession:
         return path, self._store.resolution(path, settings.resolution)
 
     def scan(self, device: str, settings: ScanSettings, options: DeviceOptions,
-             snap: bool = True, observer: ScanObserver | None = None) -> PhotoScan:
+             snap: float = SNAP_TOLERANCE, observer: ScanObserver | None = None) -> PhotoScan:
         """Scan the full frame and propose photo regions.
 
         Args:
             device: SANE device name.
             settings: Settings; the source should be the flatbed.
             options: What the device offers.
-            snap: Fit regions that nearly match a photo preset to it.
+            snap: Allowed deviation per side (0.06 = 6 %) for fitting a region
+                to a photo size; 0 switches fitting off.
             observer: Receiver of progress and the partial image.
 
         Returns:
@@ -126,14 +143,15 @@ class PhotoSession:
         return self.detect(path, dpi, snap)
 
     def preview(self, device: str, settings: ScanSettings, options: DeviceOptions,
-                snap: bool = True, observer: ScanObserver | None = None) -> PhotoScan:
+                snap: float = SNAP_TOLERANCE, observer: ScanObserver | None = None) -> PhotoScan:
         """Scan the full frame quickly at the lowest resolution and locate the photos.
 
         Args:
             device: SANE device name.
             settings: Settings; only the colour mode is used.
             options: What the device offers.
-            snap: Fit regions that nearly match a photo preset to it.
+            snap: Allowed deviation per side (0.06 = 6 %) for fitting a region
+                to a photo size; 0 switches fitting off.
             observer: Receiver of progress and the partial image.
 
         Returns:
@@ -179,20 +197,21 @@ class PhotoSession:
         self.current = PhotoScan(path, dpi, regions)
         return self.current
 
-    def detect(self, path: Path, dpi: int, snap: bool = True) -> PhotoScan:
+    def detect(self, path: Path, dpi: int, snap: float = SNAP_TOLERANCE) -> PhotoScan:
         """Propose regions for an existing full-frame scan.
 
         Args:
             path: The scan.
             dpi: Its resolution.
-            snap: Fit regions that nearly match a photo preset to it.
+            snap: Allowed deviation per side (0.06 = 6 %) for fitting a region
+                to a photo size; 0 switches fitting off.
 
         Returns:
             The scan waiting for confirmation.
         """
         regions = self._detector.detect(self._store.load_rgb(path), dpi)
-        if snap:
-            regions = [r.snapped(PHOTO_PRESETS, dpi) for r in regions]
+        if snap > 0:
+            regions = [r.snapped(PHOTO_PRESETS, dpi, tolerance=snap) for r in regions]
         self.current = PhotoScan(path, dpi, regions)
         return self.current
 
@@ -270,7 +289,7 @@ class PhotoSession:
                 break
             name = f"photo-{number + offset:04d}.{album.image_format.value}"
             target = self._store.save(ImageCropper.crop(pixels, region), album.folder / name,
-                                      album.image_format, scan.dpi)
+                                      album.encoding, scan.dpi)
             written.append(target)
             entries.append({"file": name, "scan": source, "dpi": scan.dpi,
                             "region": asdict(region)})
