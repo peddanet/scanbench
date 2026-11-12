@@ -231,8 +231,19 @@ glass is never scanned at full resolution. A preview cannot be confirmed.
 
 **Progress:** while scanning, the image builds up in the preview and the
 status bar shows a progress bar and e.g. `Page 1 of 1 · 45 % · 0:12 · about
-0:15 left`; in the feeder the page count is `Page 3 of ?`. **Cancel** stops
-the scan; pages already scanned from the feeder are kept.
+0:15 left`; in the feeder the page count is `Page 3 of ?`.
+
+**Cancel:** while a job runs, **Cancel (Esc)** appears below the scan buttons
+of the tab (and in the status bar); the **Esc** key does the same.
+
+| Job | What Cancel does |
+|---|---|
+| scan (flatbed, feeder, preview, Scan photos) | stops `scanimage`; pages already scanned from the feeder are kept |
+| Detect again | the running detection finishes, its result is discarded; the previous frames stay |
+| Confirm (saving photos) | stops before the next photo; saved photos stay in the album, the frames not yet saved keep waiting and **Confirm** saves only those |
+| Save PDF, Print | cannot be cancelled (they take seconds) |
+
+The status bar then says e.g. `Cancelled - Saved 1 photo(s); 1 still waiting`.
 
 | Scanner backend | Resolutions | Note |
 |---|---|---|
@@ -283,6 +294,8 @@ own size, skew and turn.
 | delete a frame | right-click > Delete frame, or the Delete key |
 | add a frame | **Draw frame**, or right-click on free space > Add frame here > size, or Add frame: whole page |
 | join frames (one photo was split by mistake) | select both (Ctrl + click), right-click > Merge 2 selected frames |
+| split a frame (two photos were found as one) | right-click > Split into top and bottom, or Split into left and right; then adjust each half |
+| add a frame next to or on top of another | right-click on a frame or on free space > Add frame here > size |
 | type exact values | right-click > Exact values ..., or **E** |
 
 The orange grip marks the top of the frame: if you rotate a frame so that the
@@ -378,7 +391,7 @@ switched in one atomic step. The active and the previous release are kept.
 |---|---|
 | update started from this window (**scanbench > Update ...**) | switches automatically when done |
 | update installed from a terminal or another window | asks "Switch to it now?" |
-| a scan, save or print job runs | waits and switches when the job is done |
+| a scan, save or print job runs | waits and switches when the job is done; a bar above the tabs says so and offers **Switch now**, which cancels the job and switches at once |
 
 **The open work is handed over:** the new window selects the same scanner,
 opens the same tab and shows the photo scan waiting for confirmation (with

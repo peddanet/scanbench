@@ -114,6 +114,7 @@ v = −dx·sin(a) + dy·cos(a)        y = cy + u·sin(a) + v·cos(a)
 | move | drag the frame or arrow keys (one screen pixel, at least one scan pixel; Shift: ten) |
 | draw | in draw mode a drag on free space makes a new selected frame (at least 5 mm) |
 | merge | `frame_edit.merged`: the first frame's axes, enclosing all corners |
+| split | `frame_edit.split`: two halves along the frame's own axes, skew and turn kept |
 | exact values | `FrameValuesDialog`: width and height in mm, skew in 0.1°, turn |
 | fine turn | `+` / `-` by 0.1° |
 | quarter turns | only change the saved photo, not the frame on the scan |

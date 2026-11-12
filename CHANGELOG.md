@@ -6,6 +6,21 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Cancel for every scan and for saving and re-detecting photos: a **Cancel
+  (Esc)** button below the scan buttons and the Esc key. Saving stops before
+  the next photo; saved photos stay, the rest keeps waiting. A cancelled
+  detection keeps the previous frames.
+- Bar above the tabs while a new release waits for the switch, with the
+  reason and **Switch now** (cancels the running job, then switches).
+- Frame menu: **Split into top and bottom / left and right**, and **Add
+  frame here** also on a frame.
+
+### Changed
+
+- The frame editor's Esc (end draw mode) is active only in draw mode.
+
 ## [0.2.4] - 2026-11-12
 
 ### Changed

@@ -155,6 +155,7 @@ class GuiApplication:
         bench.runner.finished.connect(lambda: self._set_busy(False))
         self.window.update_requested.connect(self.open_update)
         self.window.switch_requested.connect(self.restart)
+        self.window.cancel_requested.connect(bench.progress.cancel)
         if self._is_release:
             self.watcher = ReleaseWatcher(self._paths.release.venv_link, Version.parse(__version__),
                                           parent=self.window)

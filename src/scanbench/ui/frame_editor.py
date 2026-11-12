@@ -113,11 +113,15 @@ class FrameEditor(QWidget):
             self.tools.actions[key] = action
             if key in ("redo", "actual", "draw", "no_guides", "values"):
                 self.tools.toolbar.addSeparator()
+        # Esc ends draw mode; it is enabled only then, so that otherwise Esc
+        # cancels a running job (shortcut of the progress panel)
         stop = QAction(self)
         stop.setShortcut(QKeySequence(Qt.Key.Key_Escape))
         stop.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         stop.triggered.connect(lambda: self.tools.actions["draw"].setChecked(False))
+        stop.setEnabled(False)
         self.addAction(stop)
+        self.tools.actions["stop_draw"] = stop
         self._update_actions()
 
     def _guide(self, horizontal: bool) -> None:
@@ -166,6 +170,9 @@ class FrameEditor(QWidget):
         action = self.tools.actions.get("draw")
         if action is not None and action.isChecked() != bool(on):
             action.setChecked(bool(on))
+        stop = self.tools.actions.get("stop_draw")
+        if stop is not None:
+            stop.setEnabled(bool(on))
 
     def _changed(self, regions: list[CropRegion]) -> None:
         """Record a user change and update the details line.
