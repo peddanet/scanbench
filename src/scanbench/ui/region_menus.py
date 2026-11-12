@@ -49,11 +49,37 @@ class RegionMenus:
                             width_mm * mm, height_mm * mm).clamped(*view.frame_size)
         view.set_regions([*view.regions, region], len(view.regions))
 
-    def item_menu(self, index: int) -> QMenu:
+    def split(self, index: int, across: bool) -> None:
+        """Replace a frame by its two halves; the first half is selected.
+
+        Args:
+            index: Region index.
+            across: True for top and bottom, False for left and right.
+        """
+        view = self._view
+        first, second = frame_edit.split(view.regions[index], across)
+        regions = list(view.regions)
+        regions[index:index + 1] = [first, second]
+        view.set_regions(regions, index)
+
+    def _add_presets(self, menu: QMenu, centre: QPointF) -> None:
+        """Add the submenu "Add frame here" with the photo sizes.
+
+        Args:
+            menu: Menu to extend.
+            centre: Click position in scene coordinates.
+        """
+        add = menu.addMenu("Add frame here")
+        for paper in PHOTO_PRESETS:
+            add.addAction(paper.name).triggered.connect(
+                lambda _=False, p=paper: self.add(centre, p.height_mm, p.width_mm))
+
+    def item_menu(self, index: int, centre: QPointF | None = None) -> QMenu:
         """Build the context menu of a frame.
 
         Args:
             index: Region index.
+            centre: Click position in scene coordinates, for "Add frame here".
 
         Returns:
             The menu.
@@ -74,6 +100,12 @@ class RegionMenus:
             fit.addAction(paper.name).triggered.connect(
                 lambda _=False, p=paper: view.change(index, lambda r: r.fitted(p, view.dpi)))
         menu.addSeparator()
+        menu.addAction("Split into top and bottom").triggered.connect(
+            lambda: self.split(index, True))
+        menu.addAction("Split into left and right").triggered.connect(
+            lambda: self.split(index, False))
+        if centre is not None:
+            self._add_presets(menu, centre)
         chosen = self.selected_indices()
         if len(chosen) > 1 and index in chosen:
             menu.addAction(f"Merge {len(chosen)} selected frames").triggered.connect(
@@ -112,10 +144,7 @@ class RegionMenus:
         """
         view = self._view
         menu = QMenu(view)
-        add = menu.addMenu("Add frame here")
-        for paper in PHOTO_PRESETS:
-            add.addAction(paper.name).triggered.connect(
-                lambda _=False, p=paper: self.add(centre, p.height_mm, p.width_mm))
+        self._add_presets(menu, centre)
         middle = QPointF(view.frame_size[0] / 2 * view.scale_factor,
                          view.frame_size[1] / 2 * view.scale_factor)
         menu.addAction("Add frame: whole page").triggered.connect(
@@ -166,5 +195,5 @@ class RegionMenus:
         while item is not None and not isinstance(item, RegionItem):
             item = item.parentItem()
         if isinstance(item, RegionItem):
-            return self.item_menu(item.index)
+            return self.item_menu(item.index, view.mapToScene(position.toPoint()))
         return self.background_menu(view.mapToScene(position.toPoint()))

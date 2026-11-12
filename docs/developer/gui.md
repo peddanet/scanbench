@@ -8,7 +8,8 @@ Back to: [Developer documentation](README.md) · [Architecture](architecture.md)
 |---|---|---|
 | `ui/gui_application.py` | `GuiApplication` | Qt identity, window, update dialog, watcher, restart with handover, cleanup |
 | `ui/main_window.py` | `MainWindow` | tabs, header, menu (Update, About, Quit), version label, busy state, release switching |
-| `ui/progress_panel.py` | `ProgressPanel` | progress text, bar and **Cancel** in the status bar |
+| `ui/progress_panel.py` | `ProgressPanel` | progress text, bar, **Cancel** and the Esc shortcut in the status bar; owns the cancel event of the running job |
+| `ui/switch_banner.py` | `SwitchBanner` | bar above the tabs while a new release waits; reason and **Switch now** |
 | `application/session_handover.py` | `SessionHandover`, `Handover` | open work handed to the next release (Memento) |
 | `ui/workbench.py` | `Workbench`, `build_workbench` | creates adapters, sessions and tabs (Factory Method); session work directory |
 | `ui/task_runner.py` | `TaskRunner` | jobs in a `QThreadPool`, results in the GUI thread |
@@ -55,6 +56,15 @@ signal of the relay; in the GUI thread `ScanProgress` items update the
 in the frame editor or the page preview). **Cancel** sets the observer's
 `threading.Event`; the stream terminates `scanimage`. A reporter whose relay
 was deleted (window closed) drops the item.
+
+`run_job(..., cancellable=True)` offers the same for other jobs; such a job
+reads `progress.cancel_event` itself and stops at a safe point
+(`PhotoSession.accept` before the next photo; detection results are
+discarded). The tab shows its **Cancel (Esc)** button below the scan buttons
+while a cancellable job runs; Esc is a window shortcut of the progress panel,
+enabled only then. The frame editor's own Esc (end draw mode) is enabled only
+in draw mode, so the two never compete. `ScanTab.finish` prefixes the status
+text with `Cancelled - ` after a cancel.
 
 Raw scans live in a temporary directory below the cache directory
 (`~/.cache/scanbench/session-*`), not in `/tmp`, which is a RAM file system on
