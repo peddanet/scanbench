@@ -77,7 +77,31 @@ sequenceDiagram
 ## When a switch may happen
 
 `MainWindow.is_busy()` is true while a background job runs (counted through
-the task runner's `started`/`finished` signals, see [GUI](gui.md)) or while
-`Workbench.unsaved()` reports an unconfirmed photo scan or an unsaved
-document. An offered switch is then stored and retried after every job end
-and every status message, i.e. after each user command.
+the task runner's `started`/`finished` signals, see [GUI](gui.md)). An
+offered switch is then stored and retried after every job end and every
+status message, i.e. after each user command. (`MainWindow.unsaved` can
+still postpone switches; since 0.2.3 it is not wired, because open work is
+handed over.)
+
+## Handing the open work over
+
+~~~mermaid
+sequenceDiagram
+  participant O as old window
+  participant H as sessions/handover
+  participant N as new window
+  O->>H: handover.json + raw scans (photo, pages)
+  O->>N: start stable launcher (detached)
+  O->>O: quit, remove its work directory
+  N->>H: take(): copy scans into its work directory
+  N->>H: remove
+  N->>N: select scanner, tab, show photo scan and pages
+~~~
+
+`GuiApplication.restart` writes the handover (`SessionHandover.save`)
+before it starts the new process; if the start fails, the handover is
+removed again. `GuiApplication.show` takes a waiting handover over
+(`SessionHandover.take`) and passes it to `Workbench.restore`. A broken
+`handover.json` is discarded. The directory is
+`AppPaths.sessions_dir / "handover"`: `$SCANBENCH_HOME/sessions/handover`
+or `~/.local/share/scanbench/sessions/handover`.

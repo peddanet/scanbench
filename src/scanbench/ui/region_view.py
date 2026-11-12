@@ -1,18 +1,20 @@
 """Preview of a full-frame scan with freely editable photo frames."""
 
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
-from PySide6.QtCore import QPointF, Qt, Signal
-from PySide6.QtGui import (QContextMenuEvent, QKeyEvent, QMouseEvent, QPainter, QPixmap,
-                           QPolygonF, QResizeEvent)
-from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import (QBrush, QColor, QContextMenuEvent, QImage, QKeyEvent, QMouseEvent,
+                           QPainter, QPen, QPixmap, QPolygonF, QResizeEvent)
+from PySide6.QtWidgets import (QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsScene,
+                               QGraphicsView)
 
 from scanbench.domain import frame_edit
 from scanbench.domain.crop_region import CropRegion
 from scanbench.domain.frame_handle import FrameHandle
 from scanbench.ui.frame_items import HandleItem, RegionItem
+from scanbench.ui.guide_items import remove_guides
 from scanbench.ui.region_menus import RegionMenus
 
 MAX_PREVIEW = 1600
@@ -24,14 +26,45 @@ ROTATE_GAP_PX = 28
 SNAP_DEGREES = 0.5
 """Angle step while Shift is held during rotation."""
 
+Drag = tuple[FrameHandle, int, list[CropRegion]]
+"""Grabbed grip, frame index and the frames when the drag started."""
+
+
+@dataclass
+class ViewMode:
+    """Modes the user switches in the toolbar.
+
+    Attributes:
+        fit: Keep the whole scan fitted into the view.
+        draw: Dragging on free space draws a new frame.
+    """
+
+    fit: bool = True
+    draw: bool = False
+
+
+@dataclass
+class Gesture:
+    """The mouse gesture in progress.
+
+    Attributes:
+        drag: Grip drag, or None.
+        sketch: Start point and rubber band of a frame being drawn, or None.
+    """
+
+    drag: Drag | None = None
+    sketch: tuple[QPointF, QGraphicsRectItem] | None = None
+
 
 class RegionView(QGraphicsView):
     """Show a scan and let the user correct the proposed photo frames.
 
+    With ``mode.draw`` on, dragging on free space draws a new frame.
+
     Regions are kept in scan pixels; the view draws them scaled onto the
     preview. The selected frame has grips: sides and corners resize it (the
     opposite side stays), the orange grip above the top edge rotates it.
-    Keyboard on the selected frame: arrows move by 1 mm (Shift: 10 mm),
+    Keyboard on the selected frame: arrows move by one screen pixel (Shift: ten),
     ``+``/``-`` turn by 0.1°, Delete removes it. Each change emits
     ``regions_changed``; selecting emits ``frame_selected``.
     """
@@ -54,7 +87,8 @@ class RegionView(QGraphicsView):
         self.scale_factor = 1.0
         self.frame_size = (0, 0)
         self.pixmap_item: QGraphicsPixmapItem | None = None
-        self._drag: tuple[FrameHandle, int, list[CropRegion]] | None = None
+        self.mode = ViewMode()
+        self._gesture = Gesture()
         # A bound method is disconnected before the scene dies with the view.
         self.scene().selectionChanged.connect(self._selection_changed)
 
@@ -62,11 +96,13 @@ class RegionView(QGraphicsView):
         """Report the selected frame."""
         self.frame_selected.emit(self.selected_index())
 
-    def show_scan(self, path: Path | None, dpi: int, regions: list[CropRegion]) -> None:
+    def show_scan(self, path: Path | QImage | None, dpi: int,
+                  regions: list[CropRegion]) -> None:
         """Show a scan with its regions, or clear the view.
 
         Args:
-            path: Full-frame scan, or None to clear.
+            path: Scan file, an image (e.g. the page while it is scanned), or
+                None to clear.
             dpi: Resolution of the scan.
             regions: Regions in scan pixels.
         """
@@ -76,7 +112,7 @@ class RegionView(QGraphicsView):
         self.dpi = dpi
         if path is None:
             return
-        full = QPixmap(str(path))
+        full = QPixmap.fromImage(path) if isinstance(path, QImage) else QPixmap(str(path))
         self.frame_size = (full.width(), full.height())
         self.scale_factor = min(1.0, MAX_PREVIEW / max(1, full.width(), full.height()))
         preview = full.scaled(round(full.width() * self.scale_factor),
@@ -85,6 +121,7 @@ class RegionView(QGraphicsView):
                               Qt.TransformationMode.SmoothTransformation)
         self.pixmap_item = self.scene().addPixmap(preview)
         self.scene().setSceneRect(self.pixmap_item.boundingRect())
+        self.mode.fit = True
         self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
         self._draw(self.regions)
 
@@ -140,16 +177,19 @@ class RegionView(QGraphicsView):
         chosen = [i for i in self.scene().selectedItems() if isinstance(i, RegionItem)]
         return chosen[0].index if len(chosen) == 1 else -1
 
-    def set_regions(self, regions: list[CropRegion], selected: int = -1) -> None:
+    def set_regions(self, regions: list[CropRegion], selected: int = -1,
+                    notify: bool = True) -> None:
         """Replace the regions and report the change.
 
         Args:
             regions: New regions in scan pixels.
             selected: Index to select afterwards, -1 for none.
+            notify: Emit ``regions_changed``; False only redraws (e.g. after zooming).
         """
         self.regions = list(regions)
         self._draw(self.regions, selected)
-        self.regions_changed.emit(list(self.regions))
+        if notify:
+            self.regions_changed.emit(list(self.regions))
 
     def change(self, index: int, edit: Callable[[CropRegion], CropRegion]) -> None:
         """Apply an edit to one region; it stays selected.
@@ -162,8 +202,7 @@ class RegionView(QGraphicsView):
         regions[index] = edit(regions[index]).clamped(*self.frame_size)
         self.set_regions(regions, index)
 
-    def _dragged(self, drag: tuple[FrameHandle, int, list[CropRegion]], position: QPointF,
-                 shift: bool) -> list[CropRegion]:
+    def _dragged(self, drag: Drag, position: QPointF, shift: bool) -> list[CropRegion]:
         """Return the regions with the grabbed grip moved to a view position.
 
         Args:
@@ -187,6 +226,23 @@ class RegionView(QGraphicsView):
         preview[index] = region.clamped(*self.frame_size)
         return preview
 
+    def _finish_sketch(self, band: QGraphicsRectItem) -> None:
+        """Turn the rubber band into a new, selected frame (if it is big enough).
+
+        Args:
+            band: The rubber band item.
+        """
+        rect = band.rect()
+        self.scene().removeItem(band)
+        minimum = frame_edit.MIN_SIDE_MM / 25.4 * self.dpi
+        width, height = rect.width() / self.scale_factor, rect.height() / self.scale_factor
+        if min(width, height) < minimum:
+            return
+        centre = rect.center()
+        region = CropRegion(centre.x() / self.scale_factor, centre.y() / self.scale_factor,
+                            width, height).clamped(*self.frame_size)
+        self.set_regions([*self.regions, region], len(self.regions))
+
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt API)
         """Start a grip drag, or let Qt select and move frames.
 
@@ -195,9 +251,20 @@ class RegionView(QGraphicsView):
         """
         item = self.itemAt(event.position().toPoint())
         frame = item.parentItem() if isinstance(item, HandleItem) else None
-        if isinstance(item, HandleItem) and isinstance(frame, RegionItem) \
-                and event.button() == Qt.MouseButton.LeftButton:
-            self._drag = (item.handle, frame.index, list(self.regions))
+        left = event.button() == Qt.MouseButton.LeftButton
+        if isinstance(item, HandleItem) and isinstance(frame, RegionItem) and left:
+            self._gesture.drag = (item.handle, frame.index, list(self.regions))
+            event.accept()
+            return
+        if self.mode.draw and left and self.pixmap_item is not None:
+            start = self.mapToScene(event.position().toPoint())
+            band = QGraphicsRectItem(QRectF(start, start))
+            pen = QPen(QColor(255, 140, 0), 2, Qt.PenStyle.DashLine)
+            pen.setCosmetic(True)
+            band.setPen(pen)
+            band.setBrush(QBrush(QColor(255, 140, 0, 40)))
+            self.scene().addItem(band)
+            self._gesture.sketch = (start, band)
             event.accept()
             return
         super().mousePressEvent(event)
@@ -208,11 +275,16 @@ class RegionView(QGraphicsView):
         Args:
             event: The event.
         """
-        if self._drag is None:
+        gesture = self._gesture
+        if gesture.sketch is not None:
+            start, band = gesture.sketch
+            band.setRect(QRectF(start, self.mapToScene(event.position().toPoint())).normalized())
+            return
+        if gesture.drag is None:
             super().mouseMoveEvent(event)
             return
         shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
-        self._draw(self._dragged(self._drag, event.position(), shift), self._drag[1])
+        self._draw(self._dragged(gesture.drag, event.position(), shift), gesture.drag[1])
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt API)
         """Finish a grip drag or take over frames dragged to a new place.
@@ -220,13 +292,20 @@ class RegionView(QGraphicsView):
         Args:
             event: The event.
         """
-        if self._drag is not None:
+        gesture = self._gesture
+        if gesture.sketch is not None:
+            self._finish_sketch(gesture.sketch[1])
+            gesture.sketch = None
+            return
+        if gesture.drag is not None:
             shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
-            preview, index = self._dragged(self._drag, event.position(), shift), self._drag[1]
-            self._drag = None
+            index = gesture.drag[1]
+            preview = self._dragged(gesture.drag, event.position(), shift)
+            gesture.drag = None
             self.set_regions(preview, index)
             return
         super().mouseReleaseEvent(event)
+        remove_guides(self.scene(), only_outside=True)
         moved = [i for i in self.scene().items()
                  if isinstance(i, RegionItem) and not i.pos().isNull()]
         if moved:
@@ -245,7 +324,9 @@ class RegionView(QGraphicsView):
             event: The event.
         """
         index = self.selected_index()
-        edit = None if index < 0 else _key_edit(event, self.dpi)
+        # one screen pixel, so zooming in makes the steps finer (at least one scan pixel)
+        pixel = max(1.0, 1.0 / max(self.transform().m11() * self.scale_factor, 1e-9))
+        edit = None if index < 0 else _key_edit(event, pixel)
         if edit is None:
             super().keyPressEvent(event)
         elif isinstance(edit, str):     # "delete"
@@ -270,22 +351,23 @@ class RegionView(QGraphicsView):
             event: The event.
         """
         super().resizeEvent(event)
-        if self.pixmap_item is not None:
+        if self.pixmap_item is not None and self.mode.fit:
             self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
             self._draw(self.regions, self.selected_index())
 
 
-def _key_edit(event: QKeyEvent, dpi: int) -> Callable[[CropRegion], CropRegion] | str | None:
+def _key_edit(event: QKeyEvent, pixel: float) -> Callable[[CropRegion], CropRegion] | str | None:
     """Translate a key into a frame edit.
 
     Args:
         event: The key event.
-        dpi: Resolution of the scan.
+        pixel: Scan pixels per screen pixel; an arrow key moves by this,
+            with Shift by ten times this.
 
     Returns:
         An edit function, ``"delete"``, or None for keys without meaning.
     """
-    step = (10 if event.modifiers() & Qt.KeyboardModifier.ShiftModifier else 1) / 25.4 * dpi
+    step = (10 if event.modifiers() & Qt.KeyboardModifier.ShiftModifier else 1) * pixel
     shifts = {Qt.Key.Key_Left: (-step, 0.0), Qt.Key.Key_Right: (step, 0.0),
               Qt.Key.Key_Up: (0.0, -step), Qt.Key.Key_Down: (0.0, step)}
     key = Qt.Key(event.key())

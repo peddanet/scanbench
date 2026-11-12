@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from scan_fakes import page, write_png
 from PySide6.QtCore import QProcess
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 from pytestqt.qtbot import QtBot
@@ -12,6 +13,9 @@ from scanbench import __version__
 from scanbench import cli as cli_module
 from scanbench.app_info import APP_ID, APP_NAME
 from scanbench.domain.version import Version
+from scanbench.application.document_session import Page
+from scanbench.application.photo_session import PhotoScan
+from scanbench.domain.crop_region import CropRegion
 from scanbench.infrastructure.app_paths import AppPaths
 from scanbench.ui import main_window as main_window_module
 from scanbench.ui.gui_application import GuiApplication
@@ -47,7 +51,8 @@ def test_main_window_shows_tabs_and_version(qtbot: QtBot) -> None:
     qtbot.addWidget(window)
     titles = [window.tabs.tabText(i) for i in range(window.tabs.count())]
     assert titles == list(TAB_TITLES)
-    assert window.statusBar().currentMessage() == "scanbench 1.0.0"
+    assert window.version_label.text() == "scanbench 1.0.0"
+    assert window.windowTitle() == "scanbench 1.0.0"
 
 
 def test_switch_waits_while_busy(qtbot: QtBot) -> None:
@@ -188,6 +193,62 @@ def test_release_window_switches_after_update(tmp_path: Path, qtbot: QtBot,
     assert len(started) == 2
     window.close()
     gui.close()
+
+
+def _switch_with_open_work(paths: AppPaths, qtbot: QtBot) -> None:
+    """Open a window with work in both tabs and switch to the next release.
+
+    The first start fails (the handover is removed), the second succeeds.
+
+    Args:
+        paths: Installation directories.
+        qtbot: Waits for the scanner search.
+    """
+    paths.release.stable_launcher.parent.mkdir(parents=True, exist_ok=True)
+    paths.release.stable_launcher.write_text("", encoding="utf-8")
+    old = GuiApplication("1.0.0", paths, is_release=False)
+    window = old.show()
+    bench = old.workbench
+    assert bench is not None
+    qtbot.waitUntil(lambda: not bench.runner.busy(), timeout=60000)
+    scan_file = write_png(Path(bench.work.name) / "photos" / "scan.png", page(200), 100)
+    bench.photos.resume(PhotoScan(scan_file, 100, [CropRegion(20, 20, 30, 30, 1.5, 1)]))
+    page_file = write_png(Path(bench.work.name) / "documents" / "p.png", page(90), 100)
+    bench.documents.resume([Page(page_file, 100, 2, 1)])
+    window.tabs.setCurrentIndex(1)
+    assert old.restart("2.0.0") is False and not old.handover().directory.exists()
+    assert old.restart("2.0.0") is True and old.handover().directory.exists()
+    window.close()
+    old.close()
+
+
+def test_switch_hands_over_the_open_work(tmp_path: Path, qtbot: QtBot,
+                                         monkeypatch: pytest.MonkeyPatch) -> None:
+    """The next window continues with tab, waiting photo scan and document pages.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: Waits for the scanner searches.
+        monkeypatch: Replaces process start and quit.
+    """
+    paths = AppPaths({"SCANBENCH_HOME": str(tmp_path)}, tmp_path)
+    results = [False, True]
+    monkeypatch.setattr(QProcess, "startDetached", lambda _p, _a: (results.pop(0), 0))
+    monkeypatch.setattr(QApplication, "quit", lambda: None)
+    _switch_with_open_work(paths, qtbot)
+    new = GuiApplication("2.0.0", paths, is_release=False)
+    new_window = new.show()
+    assert new.workbench is not None
+    qtbot.waitUntil(lambda: not new.workbench.runner.busy(), timeout=60000)   # type: ignore
+    assert new_window.tabs.currentIndex() == 1
+    taken = new.workbench.photos.pending()
+    assert taken is not None and taken.regions == [CropRegion(20, 20, 30, 30, 1.5, 1)]
+    assert taken.path.exists() and taken.path.parent.parent == Path(new.workbench.work.name)
+    pages = new.workbench.documents.scanned_pages()
+    assert [(p.quarter_turns, p.batch) for p in pages] == [(2, 1)]
+    assert not new.handover().directory.exists()
+    new_window.close()
+    new.close()
 
 
 @pytest.mark.usefixtures("qapp")

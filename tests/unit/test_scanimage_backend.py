@@ -54,12 +54,13 @@ def test_arguments_and_feeder(tmp_path: Path) -> None:
     (tmp_path / "doc-003.png").write_bytes(b"")          # empty file is ignored
     shell = FakeShell(script={("scanimage",): [failed("Document feeder out of documents")]})
     settings = ScanSettings(ScanSource.ADF_DUPLEX, ColorMode.LINEART, 280, A4)
-    pages = ScanimageBackend(shell).scan("dev", settings, OPTIONS, tmp_path, "doc")
+    pages = ScanimageBackend(shell).scan("dev", settings, OPTIONS, tmp_path / "doc")
     assert [p.name for p in pages] == ["doc-001.png", "doc-002.png"]
     argv = shell.calls[0]
     assert "--source=ADF Duplex" in argv and "--mode=Lineart" in argv
     assert "--resolution=300" in argv
-    assert argv[argv.index("-x") + 1] == "210" and argv[argv.index("-y") + 1] == "297"
+    assert argv[argv.index("-x") + 1] == "210.0" and argv[argv.index("-y") + 1] == "297.0"
+    assert argv[argv.index("-l") + 1] == "0.0" and "--format=png" in argv
     assert any(a.startswith("--batch=") for a in argv)
 
 
@@ -72,13 +73,13 @@ def test_scan_errors(tmp_path: Path) -> None:
     plain = DeviceOptions(("Flatbed",), ("Gray",), ())
     backend = ScanimageBackend(FakeShell(script={("scanimage",): [failed("busy")]}))
     with pytest.raises(ScanError, match="does not offer"):
-        backend.scan("dev", ScanSettings(), plain, tmp_path, "a")
+        backend.scan("dev", ScanSettings(), plain, tmp_path / "a")
     with pytest.raises(ScanError, match="busy"):
-        backend.scan("dev", ScanSettings(mode=ColorMode.GRAY), plain, tmp_path, "a")
+        backend.scan("dev", ScanSettings(mode=ColorMode.GRAY), plain, tmp_path / "a")
     shell = FakeShell()
     with pytest.raises(ScanError, match="no message"):
         ScanimageBackend(shell).scan("dev", ScanSettings(mode=ColorMode.GRAY), plain,
-                                     tmp_path, "b")
+                                     tmp_path / "b")
     assert not any(a.startswith("--resolution") for a in shell.calls[0])
 
 
@@ -92,8 +93,8 @@ def test_real_test_device(tmp_path: Path) -> None:
     backend = ScanimageBackend(Shell(tmp_path))
     options = backend.options("test")
     assert ScanSource.ADF in options.available_sources()
-    flatbed = backend.scan("test", ScanSettings(resolution=75), options, tmp_path, "f")
+    flatbed = backend.scan("test", ScanSettings(resolution=75), options, tmp_path / "f")
     assert len(flatbed) == 1 and flatbed[0].stat().st_size > 0
     feeder = backend.scan("test", ScanSettings(ScanSource.ADF, ColorMode.GRAY, 75), options,
-                          tmp_path, "a")
+                          tmp_path / "a")
     assert len(feeder) == 10

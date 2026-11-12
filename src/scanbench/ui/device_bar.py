@@ -37,6 +37,8 @@ class DeviceBar(QWidget):
         self._runner = runner
         self._include_test = include_test
         self._options: DeviceOptions | None = None
+        # device to select after the search, e.g. the one used before a release switch
+        self.preferred: str | None = None
         self.combo = QComboBox()
         self.combo.setMinimumContentsLength(30)
         self.refresh_button = QPushButton("Search scanners")
@@ -75,6 +77,9 @@ class DeviceBar(QWidget):
         self.combo.clear()
         for device in devices:
             self.combo.addItem(device.label, device.name)
+        wanted = self.combo.findData(self.preferred)
+        if wanted >= 0:
+            self.combo.setCurrentIndex(wanted)
         self.combo.blockSignals(False)
         self.message.emit(f"{len(devices)} scanner(s) found" if devices else
                           "No scanner found; check cable, network and 'scanimage -L'")

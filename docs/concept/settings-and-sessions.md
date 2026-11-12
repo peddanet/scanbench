@@ -50,6 +50,7 @@ It rests on three ideas:
 | S4 | Sessions can be saved and loaded; work can stop in the evening and continue the next day. |
 | S5 | Very large sessions (many pages or album scans over several days) are possible. |
 | S6 | The interface stays clear; the user always sees what is being done. |
+| S7 | Every session belongs to a **project with a name** (request of 2026-11-12, see [5.8](#58-projects)). |
 
 ### 1.2 Constraints found in the scanner reference
 
@@ -70,8 +71,15 @@ It rests on three ideas:
 | horizontal and vertical guide lines, pulled out of a ruler and removed again | 0.2.3 |
 | undo and redo buttons for all frame edits | 0.2.3 |
 | exact values per photo (angle, width, height) | 0.2.3 |
-| preview scan at 75 to 150 dpi, then a high-resolution scan of only the area around the photos | 0.2.4 |
-| live scan progress: image building up, progress bar, page counter, times; cancel | 0.2.4 |
+| preview scan at 75 to 150 dpi, then a high-resolution scan of only the area around the photos | 0.2.3 (done) |
+| live scan progress: image building up, progress bar, page counter, times; cancel | 0.2.3 (done) |
+| separate photos lying edge to edge; draw frames by hand; merge frames | 0.2.3 (done) |
+| frame sides exactly on the photo edges, no light strip | 0.2.3 (done) |
+| frame numbers visible, previous/next photo | 0.2.3 (done) |
+| version in the status bar; open work kept across a release switch | 0.2.3 (done, minimal handover; full sessions 0.3.1) |
+
+The first four rows of the table were planned for 0.2.3, the preview scan and
+progress for 0.2.4; on request they were delivered together in 0.2.3.
 
 ### 1.4 What this concept does not add
 
@@ -345,6 +353,31 @@ Because every command is saved immediately, a switch to a new release no longer
 has to wait for "unsaved work". The new release reopens the sessions that were
 open, in the state they had. Only a running scan still postpones the switch.
 
+0.2.3 has a minimal form of this: before the switch the window writes a
+handover (`sessions/handover/`: scanner, tab, the waiting photo scan with its
+frames, the document pages) and the new window takes it over once.
+
+### 5.8 Projects
+
+Requested on 2026-11-12: every session belongs to a project, and projects have
+names.
+
+| Rule | Design |
+|---|---|
+| name at the start | a new photo album or document job first asks for the project name |
+| folder | the album folder (and the session directory) is named after the project, e.g. `~/Pictures/Family 1970s/` |
+| rename at any time | renaming the project renames the folder, the session directory and the title in `album.json` and `session.json` in one step; open windows follow |
+| over days | the start list shows the projects; choosing one continues its session |
+
+Open points (decisions before 0.3.1):
+
+| # | Question | Proposal |
+|---|---|---|
+| D12 | characters in folder names | keep letters (also umlauts), digits, space, `-`, `_`; replace `/` and control characters; the display name keeps everything |
+| D13 | renaming onto an existing folder | refuse with a message; never merge silently |
+| D14 | documents and photos in one project | a project can hold both kinds; each kind has its own sub-folder |
+| D15 | where photo folders live | below a base folder chosen once (default `~/Pictures`); the project name is the sub-folder |
+
 ## 6. Keeping the overview: screen layout
 
 ~~~text
@@ -448,9 +481,9 @@ Each increment is a release with all quality gates, as before.
 | Release | Content | Requirements |
 |---|---|---|
 | 0.3.0 | settings schema and stack; TOML files; generated settings form with sections, tooltips, badges, reset; summary line; presets; user-guide options table generated from the schema | S1, S2 (T), S3, S6 |
-| 0.3.1 | persistent sessions: autosave, lock, open, recent list, continue on start; browse confirmed pages and photos; finish with album name, PDF album and raw-scan question; release switch with session reopen | S4, S5 |
+| 0.3.1 | projects with names and renameable folders; persistent sessions: autosave, lock, open, recent list, continue on start; browse confirmed pages and photos; finish with PDF album and raw-scan question; release switch with session reopen | S4, S5, S7 |
 | 0.3.2 | live figures and previews: size estimates and measured values, PDF page comparison, encoder comparison, detection overlay, duplex result preview | S2 (F, P) |
-| 0.3.3 | activity log with commands and shell-script export; undo/redo; prescan; calibration wizard writing the device profile (turns "assumed" into "measured") | S2, S6 |
+| 0.3.3 | activity log with commands and shell-script export; calibration wizard writing the device profile (turns "assumed" into "measured") (undo/redo and the preview scan came with 0.2.3) | S2, S6 |
 
 The "Entwurf" (first draft) requested on 2026-11-12 is increment 0.3.0.
 

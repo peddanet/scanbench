@@ -132,6 +132,63 @@ def turned_by(region: CropRegion, degrees: float) -> CropRegion:
     return replace(region, angle=round(region.angle + degrees, 3))
 
 
+def transferred(region: CropRegion, factor: float, dx: float, dy: float) -> CropRegion:
+    """Carry a frame over to another scan of the same glass.
+
+    Used when a preview scan was followed by a scan of a smaller area at a
+    higher resolution: new = old x factor - offset.
+
+    Args:
+        region: Frame in pixels of the first scan.
+        factor: Resolution of the new scan divided by that of the first.
+        dx: Left edge of the new scan, in pixels of the new scan.
+        dy: Top edge of the new scan, in pixels of the new scan.
+
+    Returns:
+        The frame in pixels of the new scan, with angle and turns unchanged.
+    """
+    return replace(region, cx=region.cx * factor - dx, cy=region.cy * factor - dy,
+                   width=region.width * factor, height=region.height * factor)
+
+
+def bounding_area_mm(regions: list[CropRegion], dpi: int,
+                     margin_mm: float) -> tuple[float, float, float, float]:
+    """Return the rectangle around all frames, with a margin, in millimetres.
+
+    Args:
+        regions: Frames in scan pixels.
+        dpi: Resolution of that scan.
+        margin_mm: Margin added on every side.
+
+    Returns:
+        Left, top, width, height in millimetres.
+    """
+    mm = 25.4 / dpi
+    xs = [x for r in regions for x, _ in r.corners()]
+    ys = [y for r in regions for _, y in r.corners()]
+    left, top = min(xs) * mm - margin_mm, min(ys) * mm - margin_mm
+    return (left, top, max(xs) * mm + margin_mm - left, max(ys) * mm + margin_mm - top)
+
+
+def merged(regions: list[CropRegion]) -> CropRegion:
+    """Join frames into one, e.g. after one photo was split by mistake.
+
+    The result has the skew and turn of the first frame and encloses all
+    corners of all frames.
+
+    Args:
+        regions: At least one frame.
+
+    Returns:
+        The enclosing frame.
+    """
+    first = regions[0]
+    local = [to_local(first, x, y) for r in regions for x, y in r.corners()]
+    us, vs = [u for u, _ in local], [v for _, v in local]
+    cx, cy = to_scan(first, (min(us) + max(us)) / 2, (min(vs) + max(vs)) / 2)
+    return replace(first, cx=cx, cy=cy, width=max(us) - min(us), height=max(vs) - min(vs))
+
+
 def summary(region: CropRegion, dpi: int) -> str:
     """Describe size, skew and output turn of a frame.
 

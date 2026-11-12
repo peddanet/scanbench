@@ -7,6 +7,8 @@ import pytest
 from scanbench.domain import frame_edit
 from scanbench.domain.crop_region import CropRegion
 from scanbench.domain.frame_handle import FrameHandle
+from scanbench.domain.frame_history import FrameHistory
+from scanbench.domain.scan_area import ScanArea
 
 FRAME = CropRegion(100.0, 100.0, 60.0, 40.0)
 """Axis-parallel frame from (70, 80) to (130, 120)."""
@@ -66,3 +68,42 @@ def test_move_turn_and_summary() -> None:
     assert frame_edit.summary(region, 254) == \
         "100 x 70 mm, skew -0.8°, saved turned 90° clockwise"
     assert "saved as framed" in frame_edit.summary(FRAME, 254)
+
+
+def test_transfer_bounding_area_and_merge() -> None:
+    """Frames move to an area scan, enclose an area and merge into one."""
+    region = CropRegion(100, 50, 40, 20, 2.0, 1)
+    moved_over = frame_edit.transferred(region, 4.0, 300, 100)
+    assert (moved_over.cx, moved_over.cy, moved_over.width, moved_over.height) == \
+        (100, 100, 160, 80)
+    assert (moved_over.angle, moved_over.quarter_turns) == (2.0, 1)
+    left, top, width, height = frame_edit.bounding_area_mm(
+        [CropRegion(100, 100, 100, 100), CropRegion(300, 200, 100, 100)], 254, 1.0)
+    assert (left, top) == pytest.approx((4.0, 4.0))
+    assert (width, height) == pytest.approx((32.0, 22.0))
+    joined = frame_edit.merged([CropRegion(50, 50, 100, 100), CropRegion(50, 150, 100, 100)])
+    assert (joined.cx, joined.cy, joined.width, joined.height) == pytest.approx((50, 100, 100, 200))
+
+
+def test_frame_history_undo_redo() -> None:
+    """Steps are recorded, undone and redone; a new edit drops redo steps."""
+    first, second, third = (CropRegion(i, i, 10, 10) for i in (1, 2, 3))
+    history = FrameHistory(limit=2)
+    history.reset([first])
+    assert not history.can_undo() and history.undo() is None and history.redo() is None
+    history.record([first])
+    assert not history.can_undo()
+    history.record([second])
+    history.record([third])
+    history.record([first, third])
+    assert history.undo() == (third,) and history.undo() == (second,)
+    assert history.undo() is None
+    assert history.can_redo() and history.redo() == (third,)
+    history.record([])
+    assert not history.can_redo() and history.current == ()
+
+
+def test_scan_area_clamped() -> None:
+    """Areas are kept inside the glass."""
+    assert ScanArea(-5, 10, 300, 400).clamped(216, 297) == ScanArea(0, 10, 216, 287)
+    assert ScanArea(250, 300, 10, 10).clamped(216, 297) == ScanArea(216, 297, 0, 0)
