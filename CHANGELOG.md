@@ -4,6 +4,15 @@ All notable changes are documented here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning 2.0.0](https://semver.org/).
 
+## [0.2.8] - 2026-11-12
+
+### Fixed
+
+- Empty frame editor after a high-resolution scan (e.g. 1200 dpi): Qt 6
+  refuses to decode images above 256 MB. The editor now reads a reduced
+  copy (longest side 1600 px) with the limit raised for that one read; if a
+  scan still cannot be read, the editor says so and keeps the frames.
+
 ## [0.2.7] - 2026-11-12
 
 ### Added
