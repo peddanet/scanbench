@@ -435,6 +435,8 @@ again; it continues where it stopped.
 |---|---|
 | several files for one version | from 0.2.5 on, deliveries are numbered: `scanbench-X.Y.Z-patch-N.tar.gz`; the highest N wins, then the most recently saved browser copy (`… (1).tar.gz`); older names without N count as N = 0 |
 | a corrected delivery after a failed run | the local branch `hotfix/X.Y.Z` of the older delivery is discarded and rebuilt (the update remembers the SHA-256 of the applied archive); if that branch is already on GitHub, the update stops with instructions instead |
+| several versions waiting | all are listed in the order they are applied, e.g. `1. 0.2.7  scanbench-0.2.7-patch-1.tar.gz  (built on 0.2.6)`; the question `Apply all up to 0.2.8? [Enter = all, or the version to stop at]` applies every listed version up to the one you name |
+| a version missing in between | from 0.3.0 on, each archive names the version it was built on (file `BASE`). Before changing anything the update checks the chain and stops with e.g. `0.2.8 is built on 0.2.7, which is neither released nor in the download folder; download scanbench-0.2.7-patch-*.tar.gz …`. Version numbers may skip: what counts is the named base, not the number before |
 | old files in `~/Downloads` | at every run, archives of released versions and older deliveries or copies are moved to `<installation>/releases`; nothing is deleted, each move is printed |
 
 | Option | Meaning |

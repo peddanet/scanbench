@@ -4,6 +4,17 @@ All notable changes are documented here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning 2.0.0](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Update: the pending archives are listed in the order they are applied,
+  with the version each was built on; clearer question ("Apply all up to
+  X? [Enter = all, or the version to stop at]").
+- Update: archives name their base version (file `BASE`, built with
+  `tools/make_patch_archive.py`); a missing or doubled link in the chain
+  stops the update before anything changes, naming the missing archive.
+
 ## [0.2.8] - 2026-11-12
 
 ### Fixed
