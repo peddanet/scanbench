@@ -4,7 +4,7 @@ Back to: [Concept](README.md) · [Documentation home](../README.md)
 
 | | |
 |---|---|
-| Status | revision 2, 2026-11-12: decisions D7–D15 taken; parts implemented in 0.2.3 (see 1.3) |
+| Status | revision 2, 2026-11-12: decisions D7–D15 taken; parts implemented in 0.2.3 (see 1.3); increment 0.3.0 implemented in a first scope (see 8) |
 | Builds on | [concept revision 1](scanbench-concept.md), scanner reference rev. 4 ("format matrix"), release 0.2.1 |
 | Decides | which options exist, how their effect is shown, where they are stored, how sessions are saved and resumed |
 
@@ -490,6 +490,14 @@ Each increment is a release with all quality gates, as before.
 | 0.3.3 | activity log with commands and shell-script export; calibration wizard writing the device profile (turns "assumed" into "measured") (undo/redo and the preview scan came with 0.2.3) | S2, S6 |
 
 The "Entwurf" (first draft) requested on 2026-11-12 is increment 0.3.0.
+
+Implemented in 0.3.0 (2026-11-12): schema with the options that take effect
+today plus JPEG quality, PNG compression and size tolerance; layers built-in,
+default, preset, session; `settings.toml` and presets per tab; badges, reset,
+collapsible sections, summary line; generated options table in the user
+guide. Moved on: the device profile layer and the "assumed" markers (0.3.3,
+with the calibration wizard), the remaining options of chapter 2 (each when
+it takes effect), the "?" link to the guide.
 
 ## 9. Open decisions and risks
 

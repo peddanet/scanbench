@@ -28,15 +28,18 @@ CUPS_SCRIPT = {
 class Answers:
     """Modal dialogs that return prepared answers and record the questions."""
 
-    def __init__(self, job: PrintJob | None = None, path: Path | None = None) -> None:
+    def __init__(self, job: PrintJob | None = None, path: Path | None = None,
+                 name: str | None = None) -> None:
         """Store the answers.
 
         Args:
             job: Answer of the print dialog.
             path: Answer of the file and folder dialogs.
+            name: Answer of the name question (presets).
         """
         self.job = job
         self.path = path
+        self.name = name
         self.questions: list[str] = []
 
     def ask_print(self, parent: QWidget, title: str, photos: bool) -> PrintJob | None:
@@ -74,7 +77,21 @@ class Answers:
         Returns:
             Dialogs answering from this object.
         """
-        return Dialogs(self.ask_print, self.ask_path, self.ask_path)
+        return Dialogs(self.ask_print, self.ask_path, self.ask_path, self.ask_name)
+
+    def ask_name(self, parent: QWidget, question: str) -> str | None:
+        """Answer a name question.
+
+        Args:
+            parent: Ignored.
+            question: Recorded.
+
+        Returns:
+            The prepared name.
+        """
+        del parent
+        self.questions.append(question)
+        return self.name
 
 
 def idle(qtbot: QtBot, runner: TaskRunner) -> None:

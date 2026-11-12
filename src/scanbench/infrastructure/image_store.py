@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from scanbench.domain.image_format import ImageFormat
+from scanbench.domain.image_format import ImageEncoding, ImageFormat
 from scanbench.domain.scan_error import ScanError
 
 JPEG_QUALITY = 92
@@ -90,14 +90,15 @@ class ImageStore:
         return target
 
     @staticmethod
-    def save(pixels: NDArray[np.uint8], target: Path, image_format: ImageFormat,
-             dpi: int) -> Path:
+    def save(pixels: NDArray[np.uint8], target: Path,
+             encoding: ImageFormat | ImageEncoding, dpi: int) -> Path:
         """Write an RGB array as PNG or JPEG.
 
         Args:
             pixels: The image.
             target: File to write; the suffix is not changed.
-            image_format: Output format.
+            encoding: Output format with its quality settings (a bare format
+                uses the default quality).
             dpi: Resolution written into the file.
 
         Returns:
@@ -106,13 +107,16 @@ class ImageStore:
         Raises:
             ScanError: If the file cannot be written.
         """
+        if isinstance(encoding, ImageFormat):
+            encoding = ImageEncoding(encoding)
         image = Image.fromarray(pixels)
         try:
-            if image_format is ImageFormat.JPEG:
-                image.save(target, format="JPEG", quality=JPEG_QUALITY, dpi=(dpi, dpi),
-                           subsampling=0)
+            if encoding.image_format is ImageFormat.JPEG:
+                image.save(target, format="JPEG", quality=encoding.jpeg_quality,
+                           dpi=(dpi, dpi), subsampling=0)
             else:
-                image.save(target, format="PNG", dpi=(dpi, dpi))
+                image.save(target, format="PNG", dpi=(dpi, dpi),
+                           compress_level=encoding.png_compression)
         except OSError as exc:
             raise ScanError(f"cannot write {target}: {exc}") from exc
         return target
