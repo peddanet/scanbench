@@ -8,7 +8,8 @@ Lead document of the design documents.
 |---|---|
 | [scanbench-concept.md](scanbench-concept.md) | concept revision 1 (source): input review, requirements, technology decisions, architecture, document and photo scanning, gates, CI, milestones, risks, glossary, sources |
 | [scanbench-concept.pdf](scanbench-concept.pdf) | the same as PDF |
-| [settings-and-sessions.md](settings-and-sessions.md) | proposal 2026-11-12: all detail options of the scanner reference, transparency (tooltips, live figures, previews), layered configuration, persistent sessions, screen layout, increments 0.3.x |
+| [settings-and-sessions.md](settings-and-sessions.md) | revision 2, 2026-11-12: all detail options of the scanner reference, transparency (tooltips, live figures, previews), layered configuration, persistent sessions and projects, screen layout, increments 0.3.x; decisions D7–D15 |
+| [image-correction.md](image-correction.md) | proposal 2026-11-12: white balance, auto levels, gamma, local contrast, saturation, sharpening per photo, before/after view; increment 0.2.6 |
 | [diagrams/](diagrams) | Mermaid sources of all concept diagrams |
 | [img/](img) | rendered diagrams used by the concept |
 
@@ -37,6 +38,7 @@ Requested for later releases (not yet scheduled to a milestone):
 | PDF collage assistant | several photos and texts on pages, exported as PDF |
 | duplex calibration wizard, device profiles | from M1/M2 |
 | projects with names and renameable folders, sessions | [settings and sessions, 5.8](settings-and-sessions.md#58-projects), planned for 0.3.1 |
+| image correction (flat, colourless scans) | [image correction](image-correction.md), proposed for 0.2.6 |
 
 ## Open decisions
 
