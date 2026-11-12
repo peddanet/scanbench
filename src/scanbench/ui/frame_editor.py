@@ -243,7 +243,13 @@ class FrameEditor(QWidget):
             dpi: Its resolution.
             regions: Proposed frames.
         """
-        self.view.show_scan(path, dpi, regions)
+        failure = None
+        try:
+            self.view.show_scan(path, dpi, regions)
+        except OSError as exc:
+            failure = f"The scan cannot be displayed ({exc}); confirming still saves the photos."
         self.history.reset(regions)
         self._update_actions()
         self.describe(-1)
+        if failure is not None:
+            self.details.setText(failure)
