@@ -1,6 +1,7 @@
 """GUI tests; run offscreen through pytest-qt."""
 
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -316,3 +317,22 @@ def test_run_gui_helper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(QApplication, "exec", lambda self: 0)
     paths = AppPaths({}, tmp_path)
     assert cli_module._run_gui("1.0.0", paths, False) == 0  # pylint: disable=protected-access
+
+
+def test_update_dialog_keeps_the_line_order(qtbot: QtBot) -> None:
+    """A Python child's own lines arrive before the output of its children.
+
+    0.2.x showed the gate output at once and the update steps only at the end,
+    because Python buffers a pipe in blocks.
+
+    Args:
+        qtbot: pytest-qt helper that owns the widgets.
+    """
+    code = ("import subprocess; print('-- [1] step'); "
+            "subprocess.run(['echo', '== gate'], check=True); print('-- [2] step')")
+    dialog = UpdateDialog(sys.executable, ["-c", code])
+    qtbot.addWidget(dialog)
+    assert dialog.process.processEnvironment().value("PYTHONUNBUFFERED") == "1"
+    with qtbot.waitSignal(dialog.process.finished, timeout=5000):
+        dialog.start()
+    assert dialog.log.toPlainText().splitlines()[1:] == ["-- [1] step", "== gate", "-- [2] step"]
