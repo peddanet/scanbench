@@ -2,10 +2,11 @@
 
 from typing import Any
 
-from PySide6.QtCore import QPointF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QPen, QPolygonF
-from PySide6.QtWidgets import (QGraphicsEllipseItem, QGraphicsItem, QGraphicsPolygonItem,
-                               QGraphicsRectItem, QGraphicsSimpleTextItem)
+from PySide6.QtWidgets import (QGraphicsEllipseItem, QGraphicsItem, QGraphicsPixmapItem,
+                               QGraphicsPolygonItem, QGraphicsRectItem,
+                               QGraphicsSimpleTextItem)
 
 from scanbench.domain.frame_handle import FrameHandle
 
@@ -31,30 +32,62 @@ _CURSORS = {
 }
 
 
-def number_badge(number: int, parent: QGraphicsItem) -> QGraphicsRectItem:
-    """Create the photo number in a filled box, same size at every zoom.
+class NumberBadge(QGraphicsRectItem):
+    """The photo number in a filled box, same size at every zoom.
 
-    Args:
-        number: Number shown (1-based, as in the album index).
-        parent: The frame.
-
-    Returns:
-        The badge; its top-left corner is placed by the caller.
+    Items that Python keeps a reference to are subclasses: Qt then reports
+    their deletion to the Python wrapper. A plain Qt item deleted by its scene
+    or parent leaves a dangling wrapper, and releasing it crashes (0.2.5).
     """
-    badge = QGraphicsRectItem(parent)
-    badge.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
-    text = QGraphicsSimpleTextItem(str(number), badge)
-    font = text.font()
-    font.setPointSize(14)
-    font.setBold(True)
-    text.setFont(font)
-    text.setBrush(QBrush(QColor(255, 255, 255)))
-    box = text.boundingRect()
-    text.setPos(BADGE_PAD, 0)
-    badge.setRect(0, 0, box.width() + 2 * BADGE_PAD, box.height())
-    badge.setBrush(QBrush(QColor(0, 110, 210)))
-    badge.setPen(QPen(QColor(255, 255, 255), 1))
-    return badge
+
+    def __init__(self, number: int, parent: QGraphicsItem) -> None:
+        """Create the badge; its top-left corner is placed by the caller.
+
+        Args:
+            number: Number shown (1-based, as in the album index).
+            parent: The frame.
+        """
+        super().__init__(parent)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text = QGraphicsSimpleTextItem(str(number), self)
+        font = text.font()
+        font.setPointSize(14)
+        font.setBold(True)
+        text.setFont(font)
+        text.setBrush(QBrush(QColor(255, 255, 255)))
+        box = text.boundingRect()
+        text.setPos(BADGE_PAD, 0)
+        self.setRect(0, 0, box.width() + 2 * BADGE_PAD, box.height())
+        self.setBrush(QBrush(QColor(0, 110, 210)))
+        self.setPen(QPen(QColor(255, 255, 255), 1))
+
+
+class PictureItem(QGraphicsPixmapItem):
+    """The scan in the editor; one item for the whole life of the view."""
+
+    def shown(self) -> bool:
+        """Whether a scan is shown.
+
+        Returns:
+            False while the view is empty.
+        """
+        return not self.pixmap().isNull()
+
+
+class SketchBand(QGraphicsRectItem):
+    """Rubber band of a frame being drawn."""
+
+    def __init__(self, start: QPointF) -> None:
+        """Start the band at a point.
+
+        Args:
+            start: Scene point where the drag began.
+        """
+        super().__init__(QRectF(start, start))
+        pen = QPen(QColor(255, 140, 0), 2, Qt.PenStyle.DashLine)
+        pen.setCosmetic(True)
+        self.setPen(pen)
+        self.setBrush(QBrush(QColor(255, 140, 0, 40)))
 
 
 class HandleItem(QGraphicsEllipseItem):
@@ -112,7 +145,7 @@ class RegionItem(QGraphicsPolygonItem):
         box = mark.boundingRect()
         mark.setPos(centre.x() - box.width() / 2, centre.y() - box.height() / 2)
         corner = min(polygon.toList(), key=lambda p: p.x() + p.y())
-        self.badge = number_badge(index + 1, self)
+        self.badge = NumberBadge(index + 1, self)
         self.badge.setPos(corner)
         self.handles: list[HandleItem] = []
 
