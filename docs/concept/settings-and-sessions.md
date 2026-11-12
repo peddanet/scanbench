@@ -347,6 +347,9 @@ Requested on 2026-11-12:
 | Browse photos | a grid of all saved photos of the session; double-click opens the photo large, with zoom |
 | Finish | **Finish album** ends the session: the user names the album (folder name and title), chooses the outputs and confirms |
 | Outputs on finishing | the photo folder (always); optionally a **PDF album** with one or more photos per page, title page and captions; later an archive or rclone upload (M4) |
+| What goes into the PDF album | every confirmed photo of the session; nothing has to be ticked beforehand (request of 2026-11-12); a selection can be made in the finishing dialog |
+| Scaling in the PDF album | two choices: **original size** (the photo in its real size, e.g. 10 x 15 cm on A4) or **maximised** (each photo as large as fits the page, margins kept); with "maximised", normalisation either **over all pages** (one common scale, sizes stay comparable) or **per page** (each page filled) |
+| "Keep full-page scans" | becomes unnecessary: with D9 the raw scans of a session are always kept; the checkbox is removed with the sessions |
 
 ### 5.7 Effect on release switching
 

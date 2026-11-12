@@ -6,6 +6,35 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-12
+
+### Added
+
+- Cancel for every scan and for saving and re-detecting photos: a **Cancel
+  (Esc)** button below the scan buttons and the Esc key. Saving stops before
+  the next photo; saved photos stay, the rest keeps waiting. A cancelled
+  detection keeps the previous frames.
+- Bar above the tabs while a new release waits for the switch, with the
+  reason and **Switch now** (cancels the running job, then switches).
+- Frame menu: **Split into top and bottom / left and right**, and **Add
+  frame here** also on a frame.
+- Log files in the log directory (`$SCANBENCH_HOME/logs`): `scanbench.log`
+  with start, end, status texts and errors with traceback (1 MB, 5 files),
+  `crash.log` with the call stacks after a hard crash.
+- The tool buttons of the frame editor wrap into more rows in a narrow
+  window instead of hiding behind an overflow arrow.
+
+### Changed
+
+- The frame editor's Esc (end draw mode) is active only in draw mode.
+
+### Fixed
+
+- Live image while scanning: only a reduced copy (longest side 1600 pixels,
+  every n-th row read) goes to the display; before, the whole image received
+  so far was copied twice every 0.4 s, close to a gigabyte per update at
+  2400 dpi. The finished page is saved without extra copies.
+
 ## [0.2.4] - 2026-11-12
 
 ### Changed

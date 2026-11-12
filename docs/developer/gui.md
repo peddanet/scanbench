@@ -8,7 +8,10 @@ Back to: [Developer documentation](README.md) · [Architecture](architecture.md)
 |---|---|---|
 | `ui/gui_application.py` | `GuiApplication` | Qt identity, window, update dialog, watcher, restart with handover, cleanup |
 | `ui/main_window.py` | `MainWindow` | tabs, header, menu (Update, About, Quit), version label, busy state, release switching |
-| `ui/progress_panel.py` | `ProgressPanel` | progress text, bar and **Cancel** in the status bar |
+| `ui/progress_panel.py` | `ProgressPanel` | progress text, bar, **Cancel** and the Esc shortcut in the status bar; owns the cancel event of the running job |
+| `ui/switch_banner.py` | `SwitchBanner` | bar above the tabs while a new release waits; reason and **Switch now** |
+| `ui/flow_bar.py` | `FlowBar`, `FlowLayout` | tool buttons of the frame editor; wrap into more rows instead of an overflow arrow |
+| `infrastructure/app_log.py` | `AppLog` | `scanbench.log` (rotating), `crash.log` (`faulthandler`), hook for uncaught exceptions |
 | `application/session_handover.py` | `SessionHandover`, `Handover` | open work handed to the next release (Memento) |
 | `ui/workbench.py` | `Workbench`, `build_workbench` | creates adapters, sessions and tabs (Factory Method); session work directory |
 | `ui/task_runner.py` | `TaskRunner` | jobs in a `QThreadPool`, results in the GUI thread |
@@ -56,9 +59,28 @@ in the frame editor or the page preview). **Cancel** sets the observer's
 `threading.Event`; the stream terminates `scanimage`. A reporter whose relay
 was deleted (window closed) drops the item.
 
+`run_job(..., cancellable=True)` offers the same for other jobs; such a job
+reads `progress.cancel_event` itself and stops at a safe point
+(`PhotoSession.accept` before the next photo; detection results are
+discarded). The tab shows its **Cancel (Esc)** button below the scan buttons
+while a cancellable job runs; Esc is a window shortcut of the progress panel,
+enabled only then. The frame editor's own Esc (end draw mode) is enabled only
+in draw mode, so the two never compete. `ScanTab.finish` prefixes the status
+text with `Cancelled - ` after a cancel.
+
 Raw scans live in a temporary directory below the cache directory
 (`~/.cache/scanbench/session-*`), not in `/tmp`, which is a RAM file system on
 many distributions; `Workbench.close()` waits for jobs and removes it.
+
+## Logging
+
+`GuiApplication.run` starts `AppLog` before the window and stops it after
+the event loop. Logged are: start with version, Python and platform; every
+status text (`MainWindow.show_message`); every failed background job with
+traceback (`TaskRunner`); uncaught exceptions, e.g. in Qt slots
+(`sys.excepthook`); the start of a release switch; the end. A hard crash
+(segmentation fault, abort) leaves the stacks of all threads in `crash.log`.
+Files rotate at 1 MB (`scanbench.log` plus 4 older ones).
 
 ## Testing the GUI
 
