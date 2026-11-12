@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from workflow_fakes import (FakeDev, FakeGit, FakeGitHub, FakeInstaller, FakeVersions,
-                            Log)
+                            GitState, Log)
 
 from scanbench.application.first_publication import FirstPublication
 from scanbench.application.progress import Progress
@@ -40,8 +40,8 @@ def _archive(folder: Path, version: str) -> Path:
 
 
 def _context(tmp_path: Path, released: Version | None, active: Version | None,
-             fail_checks: bool = False, remote: bool = True) -> tuple[ReleaseContext, Log,
-                                                                      list[str]]:
+             fail_checks: bool = False,
+             state: GitState | None = None) -> tuple[ReleaseContext, Log, list[str]]:
     """Wire a context of fakes.
 
     Args:
@@ -49,7 +49,7 @@ def _context(tmp_path: Path, released: Version | None, active: Version | None,
         released: Released version on GitHub.
         active: Active installed release.
         fail_checks: Make pull-request checks fail.
-        remote: Whether origin exists.
+        state: State of the fake clone (branches, origin), or None for a new one.
 
     Returns:
         Context, call log and output lines.
@@ -60,7 +60,8 @@ def _context(tmp_path: Path, released: Version | None, active: Version | None,
     (clone / ".git").mkdir(parents=True, exist_ok=True)
     paths = AppPaths({"SCANBENCH_HOME": str(tmp_path / "sb")}, tmp_path)
     versions = FakeVersions(released, released or Version(0, 1, 0))
-    git = FakeGit(log, versions, clone, remote)
+    state = state or GitState()
+    git = FakeGit(log, versions, clone, state.remote, state)
     ctx = ReleaseContext(paths, git, versions, FakeGitHub(log, fail_checks), FakeDev(log),
                          FakeInstaller(log, paths, active), Progress(out.append))
     return ctx, log, out
@@ -149,7 +150,7 @@ def test_update_preconditions(tmp_path: Path, remote: bool, git_dir: bool) -> No
         remote: Whether origin exists.
         git_dir: Whether the clone has a .git directory.
     """
-    ctx, _, out = _context(tmp_path, None, None, remote=remote)
+    ctx, _, out = _context(tmp_path, None, None, state=GitState(remote=remote))
     if not git_dir:
         (ctx.git.root / ".git").rmdir()
     assert UpdateService(ctx, ArchiveFinder(tmp_path), lambda p: p, nullcontext()).run() == 1
@@ -180,7 +181,7 @@ def test_publish_runs_all_steps(tmp_path: Path) -> None:
     Args:
         tmp_path: Temporary directory of the test.
     """
-    ctx, log, out = _context(tmp_path, None, None, remote=False)
+    ctx, log, out = _context(tmp_path, None, None, state=GitState(remote=False))
     assert FirstPublication(ctx, "o/r").run() == 0
     expected = ["gates", "create o/r", "push main", "push develop", "configure",
                 "dispatch develop", "protect main", "tag v0.1.0", "install v0.1.0"]
@@ -222,7 +223,53 @@ def test_publish_needs_clone(tmp_path: Path) -> None:
     Args:
         tmp_path: Temporary directory of the test.
     """
-    ctx, _, out = _context(tmp_path, None, None, remote=False)
+    ctx, _, out = _context(tmp_path, None, None, state=GitState(remote=False))
     (ctx.git.root / ".git").rmdir()
     assert FirstPublication(ctx, "o/r").run() == 1
     assert "no git clone" in out[-1]
+
+
+def test_update_discards_branch_of_another_delivery(tmp_path: Path) -> None:
+    """A local hotfix branch from an older delivery is rebuilt; a pushed one stops.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    downloads = tmp_path / "dl"
+    downloads.mkdir()
+    _archive(downloads, "0.1.1")
+    (downloads / "scanbench-0.1.0-patch.tar.gz").write_bytes(b"released long ago")
+    state = GitState()
+    state.branches.add("hotfix/0.1.1")             # left by a failed run
+    ctx, log, out = _context(tmp_path, Version(0, 1, 0), Version(0, 1, 0), state=state)
+    git = ctx.git
+    assert isinstance(git, FakeGit)
+    versions = ctx.versions
+    assert isinstance(versions, FakeVersions)
+    versions.line = Version(0, 1, 1)
+    git.next_line = Version(0, 1, 1)
+    original_delete = git.delete_branch
+
+    def delete(branch: str) -> None:
+        """Delete and fall back to the version of main.
+
+        Args:
+            branch: Branch.
+        """
+        original_delete(branch)
+        versions.line = Version(0, 1, 0)
+
+    git.delete_branch = delete  # type: ignore[method-assign]
+    assert UpdateService(ctx, ArchiveFinder(downloads), lambda p: p, nullcontext()).run() == 0
+    assert log.index("delete hotfix/0.1.1") < log.index("apply 1")
+    assert any("discarded local hotfix/0.1.1" in line for line in out)
+    assert not list(downloads.iterdir())
+    assert (ctx.paths.release.archive_store / "scanbench-0.1.0-patch.tar.gz").exists()
+
+    _archive(downloads, "0.1.2")
+    pushed = GitState()
+    pushed.branches.add("hotfix/0.1.2")
+    pushed.pushed.add("hotfix/0.1.2")
+    ctx, log, out = _context(tmp_path, Version(0, 1, 1), Version(0, 1, 1), state=pushed)
+    assert UpdateService(ctx, ArchiveFinder(downloads), lambda p: p, nullcontext()).run() == 1
+    assert "built from another delivery" in out[-1] and "delete hotfix/0.1.2" not in log

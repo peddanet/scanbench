@@ -226,8 +226,8 @@ takes minutes). The fast way:
 | 3 | **Scan photos** | only the area around all frames (plus 3 mm) at the chosen resolution; the frames are taken over |
 | 4 | **Confirm N photo(s)** | as in [section 6.5](#65-confirm-and-continue) |
 
-**Scan whole page** skips the preview and scans the whole A4 frame at the
-chosen resolution. A preview cannot be confirmed.
+Every photo page starts with the preview scan (decision D10); the whole
+glass is never scanned at full resolution. A preview cannot be confirmed.
 
 **Progress:** while scanning, the image builds up in the preview and the
 status bar shows a progress bar and e.g. `Page 1 of 1 · 45 % · 0:12 · about
@@ -400,6 +400,12 @@ from `main`, `git am`, all six gates locally, pull request into `main`
 back into `develop` (CI 3/3); finally the newest version is installed and the
 archives are moved to `<installation>/releases`. A failed run can be started
 again; it continues where it stopped.
+
+| Situation | What the update does by itself |
+|---|---|
+| several files for one version | from 0.2.5 on, deliveries are numbered: `scanbench-X.Y.Z-patch-N.tar.gz`; the highest N wins, then the most recently saved browser copy (`… (1).tar.gz`); older names without N count as N = 0 |
+| a corrected delivery after a failed run | the local branch `hotfix/X.Y.Z` of the older delivery is discarded and rebuilt (the update remembers the SHA-256 of the applied archive); if that branch is already on GitHub, the update stops with instructions instead |
+| old files in `~/Downloads` | at every run, archives of released versions and older deliveries or copies are moved to `<installation>/releases`; nothing is deleted, each move is printed |
 
 | Option | Meaning |
 |---|---|
