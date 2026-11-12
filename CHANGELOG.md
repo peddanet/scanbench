@@ -6,6 +6,8 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-12
+
 ### Changed
 
 - Print dialog: readable names instead of driver keywords (paper sizes with
