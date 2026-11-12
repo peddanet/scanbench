@@ -119,7 +119,12 @@ def test_branch_patch_tag_push(clone: Path, tmp_path: Path) -> None:
     repo.tag(Version(0, 1, 1))
     repo.tag(Version(0, 1, 1))
     repo.push("v0.1.1")
+    assert repo.refs.has_branch("work") and not repo.refs.on_remote("work")
     repo.push("work")
+    assert repo.refs.on_remote("work")
+    assert repo.refs.get_config("scanbench.hotfix-0-1-1") == ""
+    repo.refs.set_config("scanbench.hotfix-0-1-1", "abc")
+    assert repo.refs.get_config("scanbench.hotfix-0-1-1") == "abc"
     assert versions.released_version() == Version(0, 1, 1)
     repo.switch("work", start="main")
     repo.switch("main")

@@ -42,11 +42,12 @@ workflows are in the [release process](release-process.md).
 | `application/first_publication.py` | `FirstPublication` | create repository, settings, protection, first tag |
 | `infrastructure/shell.py` | `Shell` | argument-list commands, retries for reading calls, live output |
 | `infrastructure/git_repo.py` | `GitRepo` | branches, patches, pushes, tags (Adapter) |
+| `infrastructure/git_refs.py` | `GitRefs` | branch exists locally or on `origin`; values in the clone's git configuration |
 | `infrastructure/git_versions.py` | `GitVersions` | release tags on the remote, version lines on refs |
 | `infrastructure/github_cli.py` | `GitHubCli` | pull requests, CI runs, repository settings through `gh` (Adapter) |
 | `infrastructure/dev_environment.py` | `DevEnvironment` | development venv of the clone, gates |
 | `infrastructure/release_installer.py` | `ReleaseInstaller` | run `install.sh`, read the active release |
-| `infrastructure/archive_finder.py` | `ArchiveFinder` | newest copy per version, pending versions |
+| `infrastructure/archive_finder.py` | `ArchiveFinder` | newest delivery per version, pending and obsolete archives, SHA-256 |
 | `infrastructure/update_lock.py` | `UpdateLock` | exclusive `flock` against parallel updates |
 
 ## Update and live switch

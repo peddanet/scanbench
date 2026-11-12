@@ -226,8 +226,8 @@ takes minutes). The fast way:
 | 3 | **Scan photos** | only the area around all frames (plus 3 mm) at the chosen resolution; the frames are taken over |
 | 4 | **Confirm N photo(s)** | as in [section 6.5](#65-confirm-and-continue) |
 
-**Scan whole page** skips the preview and scans the whole A4 frame at the
-chosen resolution. A preview cannot be confirmed.
+Every photo page starts with the preview scan (decision D10); the whole
+glass is never scanned at full resolution. A preview cannot be confirmed.
 
 **Progress:** while scanning, the image builds up in the preview and the
 status bar shows a progress bar and e.g. `Page 1 of 1 · 45 % · 0:12 · about
@@ -324,7 +324,7 @@ scanbench printers
 | Printer | all CUPS queues; the default printer is preselected |
 | Copies | 1 to 99 |
 | Scale to fit the page | `-o fit-to-page`; preselected for photos |
-| Driver options | one choice per option of the driver (PPD), important ones first: paper source (`InputSlot`), media type, page size, colour, quality, duplex |
+| Driver options | one choice per option of the driver (PPD), important ones first: paper source (`InputSlot`), media type, page size, colour, quality, duplex; readable names instead of driver keywords (the keyword is the tooltip) |
 
 ![Print dialog with example driver options](img/print-dialog.png)
 
@@ -336,9 +336,30 @@ Only options you change are sent; everything else keeps the printer defaults.
 | photo 10 x 15 cm | photo tray or rear tray | glossy photo paper | 10x15 / 4x6 |
 | printable CD/DVD | CD/DVD tray | printable disc | disc size of the driver |
 
-The names come from the printer driver. A CD/DVD tray is only offered if the
-installed driver supports it; the driverless IPP Everywhere queue often has
-fewer options than the manufacturer's driver.
+The choices come from the printer driver; scanbench shows them with readable
+names: `4x6.Borderless` becomes "Photo 10 x 15 cm (4 x 6 in), borderless",
+`ByPassTray` "Rear tray (manual feed)", `DuplexNoTumble` "Two-sided, flip on
+long edge (book)". Photo sizes (9 x 13, 10 x 15, 13 x 18, 20 x 25 cm,
+postcard) are listed below the other sizes, after a separator.
+
+A CD/DVD tray is only offered if the installed driver supports it; the
+driverless IPP Everywhere queue often has fewer options than the
+manufacturer's driver. If the driver has no disc tray, the dialog says so
+below the options. Templates such as `Custom.WIDTHxHEIGHT` are not offered,
+because they cannot be sent as they are.
+
+**PIXMA MX92x with the driverless queue:** the sources are `Auto`, `Top`
+(upper cassette) and `Bottom` (lower cassette); there is no CD/DVD tray. The
+upper cassette takes 10 x 15 and 13 x 18 cm photo paper; with **Automatic**
+the printer takes photo paper from it when one of these sizes is chosen, so
+choosing the size is enough
+([Canon manual: paper sources](https://ij.manual.canon/ij/webmanual/Manual/W/MX920%20series/EN/BG/Bg-Loading1100.html)).
+
+Which choices your driver has (normal user, reads only):
+
+~~~bash
+lpoptions -p QUEUE -l
+~~~
 
 ## 8. Updating
 
@@ -379,6 +400,12 @@ from `main`, `git am`, all six gates locally, pull request into `main`
 back into `develop` (CI 3/3); finally the newest version is installed and the
 archives are moved to `<installation>/releases`. A failed run can be started
 again; it continues where it stopped.
+
+| Situation | What the update does by itself |
+|---|---|
+| several files for one version | from 0.2.5 on, deliveries are numbered: `scanbench-X.Y.Z-patch-N.tar.gz`; the highest N wins, then the most recently saved browser copy (`… (1).tar.gz`); older names without N count as N = 0 |
+| a corrected delivery after a failed run | the local branch `hotfix/X.Y.Z` of the older delivery is discarded and rebuilt (the update remembers the SHA-256 of the applied archive); if that branch is already on GitHub, the update stops with instructions instead |
+| old files in `~/Downloads` | at every run, archives of released versions and older deliveries or copies are moved to `<installation>/releases`; nothing is deleted, each move is printed |
 
 | Option | Meaning |
 |---|---|

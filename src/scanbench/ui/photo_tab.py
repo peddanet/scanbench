@@ -14,8 +14,8 @@ from scanbench.ui.frame_editor import FrameEditor
 from scanbench.ui.scan_tab import ScanTab
 from scanbench.ui.tab_context import TabContext
 
-START_TEXT = ("Put photos on the glass. 'Preview scan' finds them quickly; 'Scan photos' then "
-              "scans only their area at full resolution. Or scan the whole page directly.")
+START_TEXT = ("Put photos on the glass. 'Preview scan' finds them quickly; check the frames, "
+              "then 'Scan photos' scans only their area at the chosen resolution.")
 """Hint shown while no scan waits for confirmation."""
 
 
@@ -43,7 +43,7 @@ class PhotoTab(ScanTab):
         self.form = PhotoForm(settings, context.dialogs.choose_folder)
         self.editor = FrameEditor(START_TEXT)
         self.buttons.update({key: QPushButton(text) for key, text in (
-            ("preview", "Preview scan"), ("area", "Scan photos"), ("scan", "Scan whole page"),
+            ("preview", "Preview scan"), ("area", "Scan photos"),
             ("confirm", "Confirm photos"), ("discard", "Discard scan"),
             ("detect", "Detect again"), ("print", "Print saved photos ..."))})
         self.buttons["preview"].setToolTip(
@@ -62,7 +62,7 @@ class PhotoTab(ScanTab):
         layout.addWidget(side)
         layout.addWidget(self.editor, 1)
         for key, action in (("preview", self._preview), ("area", self._scan_area),
-                            ("scan", self.scan), ("confirm", self.confirm),
+                            ("confirm", self.confirm),
                             ("discard", self.discard), ("detect", self.detect_again),
                             ("print", self.print_photos)):
             self.buttons[key].clicked.connect(action)
@@ -99,27 +99,13 @@ class PhotoTab(ScanTab):
         can_scan = (not busy and self.form.panel.ready()
                     and self._ctx.devices.device() is not None)
         is_preview = current is not None and current.preview
-        for key in ("preview", "scan"):
-            self.buttons[key].setEnabled(can_scan and (current is None or is_preview))
+        self.buttons["preview"].setEnabled(can_scan and (current is None or is_preview))
         has_frames = current is not None and bool(current.regions)
         self.buttons["area"].setEnabled(can_scan and is_preview and has_frames)
         self.buttons["confirm"].setEnabled(not busy and current is not None and not is_preview)
         for key in ("discard", "detect"):
             self.buttons[key].setEnabled(not busy and current is not None)
         self.buttons["print"].setEnabled(not busy and bool(self.saved))
-
-    def scan(self) -> None:
-        """Scan the whole A4 frame of the flatbed and detect the photos."""
-        selected = self.selected_device()
-        if selected is None:
-            return
-        device, options = selected
-        settings = self.form.panel.settings()
-        snap = self.form.snap.isChecked()
-        self.run_scan(f"Scanning the full A4 frame at {settings.resolution} dpi ...",
-                      lambda observer: self._session.scan(device, settings, options, snap,
-                                                          observer),
-                      self._detected)
 
     def _preview(self) -> None:
         """Scan the whole glass quickly to locate the photos."""
