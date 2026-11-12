@@ -55,3 +55,28 @@ def test_finder_without_folder(tmp_path: Path) -> None:
         tmp_path: Temporary directory of the test.
     """
     assert not ArchiveFinder(tmp_path / "missing").pending(None)
+
+
+def test_delivery_numbers_and_obsolete_archives(tmp_path: Path) -> None:
+    """The highest delivery number wins over newer copies; old ones are obsolete.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    numbered = PatchArchive.from_path(Path("scanbench-0.2.5-patch-3(1).tar.gz"))
+    assert numbered is not None and (numbered.build, numbered.copy) == (3, 1)
+    for name, mtime in [("scanbench-0.2.4-patch.tar.gz", 100),
+                        ("scanbench-0.2.5-patch-1.tar.gz", 400),
+                        ("scanbench-0.2.5-patch-2.tar.gz", 200),
+                        ("scanbench-0.2.5-patch-2(1).tar.gz", 300)]:
+        path = tmp_path / name
+        path.write_bytes(name.encode())
+        os.utime(path, (mtime, mtime))
+    finder = ArchiveFinder(tmp_path)
+    pending = finder.pending(Version(0, 2, 4))
+    assert [a.path.name for a in pending] == ["scanbench-0.2.5-patch-2(1).tar.gz"]
+    obsolete = sorted(a.path.name for a in finder.obsolete(Version(0, 2, 4), pending))
+    assert obsolete == ["scanbench-0.2.4-patch.tar.gz", "scanbench-0.2.5-patch-1.tar.gz",
+                        "scanbench-0.2.5-patch-2.tar.gz"]
+    assert not finder.obsolete(None, [])
+    assert len(ArchiveFinder.digest(pending[0])) == 64

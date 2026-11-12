@@ -71,8 +71,10 @@ match.
 
 The assistant works in its own clone, commits with the author's GitHub
 noreply identity, runs `tools/check.sh`, and delivers `git format-patch`
-output as `scanbench-X.Y.Z-patch.tar.gz`, always based on the newest release.
-It never pushes.
+output as `scanbench-X.Y.Z-patch-N.tar.gz`, always based on the newest
+release; N counts the deliveries of one version (1, 2, …), so a corrected
+delivery has its own name. (Up to 0.2.4 the name had no N; the update of
+0.2.3 and older does not recognise N.) It never pushes.
 
 The maintainer turns delivered archives into releases with
 `scanbench update` (terminal) or the menu **scanbench > Update ...**. The
@@ -85,6 +87,9 @@ simplification for a single maintainer.
 | Design point | Implementation |
 |---|---|
 | order | archives are applied strictly in ascending version order |
+| choice per version | highest delivery number N, then newest browser copy (`ArchiveFinder.newest_per_version`) |
+| corrected delivery | the SHA-256 of the applied archive is stored in the clone's git configuration (`scanbench.hotfix-X-Y-Z`); a local `hotfix/X.Y.Z` built from another archive is deleted and rebuilt, one already on `origin` stops the update |
+| tidy download folder | `ArchiveFinder.obsolete`: archives of released versions and older deliveries or copies go to the archive store at the start and the end of each run |
 | local gates | run in `<clone>/.venv`, created and refreshed by the update; the push afterwards skips the pre-push hook because the same commit was just checked |
 | resumable | each step checks the state first (version on `origin/main`, existing tag, open pull request, merged state) |
 | network | reading `git` and `gh` calls are retried 5 times, 10 s apart |
