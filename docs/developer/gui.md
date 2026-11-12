@@ -10,6 +10,8 @@ Back to: [Developer documentation](README.md) · [Architecture](architecture.md)
 | `ui/main_window.py` | `MainWindow` | tabs, header, menu (Update, About, Quit), version label, busy state, release switching |
 | `ui/progress_panel.py` | `ProgressPanel` | progress text, bar, **Cancel** and the Esc shortcut in the status bar; owns the cancel event of the running job |
 | `ui/switch_banner.py` | `SwitchBanner` | bar above the tabs while a new release waits; reason and **Switch now** |
+| `ui/flow_bar.py` | `FlowBar`, `FlowLayout` | tool buttons of the frame editor; wrap into more rows instead of an overflow arrow |
+| `infrastructure/app_log.py` | `AppLog` | `scanbench.log` (rotating), `crash.log` (`faulthandler`), hook for uncaught exceptions |
 | `application/session_handover.py` | `SessionHandover`, `Handover` | open work handed to the next release (Memento) |
 | `ui/workbench.py` | `Workbench`, `build_workbench` | creates adapters, sessions and tabs (Factory Method); session work directory |
 | `ui/task_runner.py` | `TaskRunner` | jobs in a `QThreadPool`, results in the GUI thread |
@@ -69,6 +71,16 @@ text with `Cancelled - ` after a cancel.
 Raw scans live in a temporary directory below the cache directory
 (`~/.cache/scanbench/session-*`), not in `/tmp`, which is a RAM file system on
 many distributions; `Workbench.close()` waits for jobs and removes it.
+
+## Logging
+
+`GuiApplication.run` starts `AppLog` before the window and stops it after
+the event loop. Logged are: start with version, Python and platform; every
+status text (`MainWindow.show_message`); every failed background job with
+traceback (`TaskRunner`); uncaught exceptions, e.g. in Qt slots
+(`sys.excepthook`); the start of a release switch; the end. A hard crash
+(segmentation fault, abort) leaves the stacks of all threads in `crash.log`.
+Files rotate at 1 MB (`scanbench.log` plus 4 older ones).
 
 ## Testing the GUI
 

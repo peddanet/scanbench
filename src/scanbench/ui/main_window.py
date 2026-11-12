@@ -1,11 +1,13 @@
 """Main window: one tab per use case, update menu, safe release switching."""
 
+import logging
 from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QMainWindow, QMessageBox, QTabWidget, QVBoxLayout, QWidget
 
 from scanbench.app_info import APP_NAME
+from scanbench.infrastructure.app_log import LOGGER
 from scanbench.ui.switch_banner import SwitchBanner
 
 TAB_TITLES = ("Documents", "Photo album")
@@ -128,6 +130,7 @@ class MainWindow(QMainWindow):
             text: The text.
         """
         self.statusBar().showMessage(text)
+        logging.getLogger(LOGGER).info("status: %s", text)
         self._try_pending()
 
     def _try_pending(self) -> None:

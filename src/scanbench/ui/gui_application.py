@@ -1,5 +1,6 @@
 """Start the Qt application with the identity the desktop expects."""
 
+import logging
 import sys
 from importlib import resources
 from pathlib import Path
@@ -11,6 +12,7 @@ from PySide6.QtWidgets import QApplication
 from scanbench import __version__
 from scanbench.app_info import APP_ID, APP_NAME
 from scanbench.application.session_handover import SessionHandover
+from scanbench.infrastructure.app_log import LOGGER, AppLog
 from scanbench.domain.version import Version
 from scanbench.infrastructure.app_paths import AppPaths
 from scanbench.ui.main_window import MainWindow
@@ -111,6 +113,8 @@ class GuiApplication:
         if self.workbench is not None and self.window is not None:
             handover.save(self.workbench.handover(self.window.tabs.currentIndex()))
         started = bool(QProcess.startDetached(str(launcher), [])[0])
+        logging.getLogger(LOGGER).info("switch to the new release: %s",
+                                       "started" if started else "start failed")
         if started:
             QApplication.quit()
         else:
@@ -192,8 +196,11 @@ class GuiApplication:
         existing = QApplication.instance()
         app = existing if isinstance(existing, QApplication) else QApplication(argv)
         self.configure(app)
-        self.show()
+        log = AppLog(self._paths.log_dir)
+        log.start(self._version_text)
         try:
+            self.show()
             return app.exec()
         finally:
             self.close()
+            log.stop()

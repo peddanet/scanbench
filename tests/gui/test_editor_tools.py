@@ -302,3 +302,28 @@ def test_split_and_add_from_frame_menu(tmp_path: Path, qtbot: QtBot) -> None:
     assert len(view.regions) == 4 and view.selected_index() == 3
     editor.undo()
     assert len(view.regions) == 3
+
+
+def test_tool_buttons_wrap_instead_of_hiding(qtbot: QtBot) -> None:
+    """In a narrow window the tool buttons use more rows; all stay reachable.
+
+    Args:
+        qtbot: pytest-qt helper.
+    """
+    editor = FrameEditor("hint")
+    qtbot.addWidget(editor)
+    tools = editor.tools.toolbar
+    one_row = tools.flow.heightForWidth(5000)
+    assert tools.flow.heightForWidth(300) > 2 * one_row
+    assert tools.flow.sizeHint().height() == one_row
+    assert tools.flow.minimumSize().width() > 0
+    assert tools.flow.count() > len(editor.tools.actions) - 1
+    editor.resize(320, 600)
+    editor.show()
+    qtbot.waitExposed(editor)
+    bottoms = {tools.flow.itemAt(i).geometry().top()  # type: ignore[union-attr]
+               for i in range(tools.flow.count())}
+    assert len(bottoms) > 2
+    assert tools.flow.itemAt(999) is None and tools.flow.takeAt(999) is None
+    taken = tools.flow.takeAt(0)
+    assert taken is not None and tools.flow.count() > 0

@@ -130,7 +130,8 @@ All commands run as normal user.
 | Content | Default | With `SCANBENCH_HOME` |
 |---|---|---|
 | Settings (album folder) | `~/.config/scanbench` | `$SCANBENCH_HOME/config` |
-| Logs | `~/.local/state/scanbench/logs` | `$SCANBENCH_HOME/logs` |
+| Logs: `scanbench.log` (start, end, every status text, errors with traceback; rotated at 1 MB, 5 files) and `crash.log` (call stacks after a hard crash) | `~/.local/state/scanbench/logs` | `$SCANBENCH_HOME/logs` |
+| Sessions and the handover to a new release | `~/.local/share/scanbench/sessions` | `$SCANBENCH_HOME/sessions` |
 | Raw scans of the running session, deleted on exit | `~/.cache/scanbench/session-*` | `$SCANBENCH_HOME/cache/session-*` |
 | Installed releases | `~/.local/share/scanbench/venvs/X.Y.Z`, active one linked as `venv` | `$SCANBENCH_HOME/venvs/X.Y.Z` |
 | Applied patch archives | `~/.local/share/scanbench/releases` | `$SCANBENCH_HOME/releases` |
@@ -442,10 +443,19 @@ scanbench doctor
 It shows version, directories and every external program with its location
 or the package to install.
 
+**After a crash or an error**, send the end of the logs (normal user, reads
+only; without `SCANBENCH_HOME` the folder is `~/.local/state/scanbench/logs`):
+
+~~~bash
+tail -n 80 "${SCANBENCH_HOME:-$HOME/.local/state/scanbench}/logs/scanbench.log"
+tail -n 80 "${SCANBENCH_HOME:-$HOME/.local/state/scanbench}/logs/crash.log"
+~~~
+
 | Problem | Check |
 |---|---|
 | scanner not found | `scanimage -L` lists what SANE sees; install `sane-airscan` for network scanners; scanner and computer in the same network; close other scanning programs that hold the device. `scanbench devices --test` must at least show the virtual scanner `test` |
-| photos not found or merged | leave space between photos; close the lid; very light photos on a white lid: add the frame by hand and adjust it with the grips |
+| photos not found or merged | close the lid; very light photos on a white lid: draw the frame (D) or split a merged frame (right-click > Split ...) and adjust it with the grips |
+| tool buttons cut off | they wrap into more rows in a narrow window; nothing is hidden |
 | no reduced PDF sizes | `sudo apt install ghostscript` |
 | printing fails | `lpstat -t` shows scheduler, queues and waiting jobs; "No printer is set up in CUPS" means no queue exists: add the printer in the printer settings of your desktop |
 | an option such as the CD/DVD tray is missing | the queue uses a driver without it (often IPP Everywhere) |

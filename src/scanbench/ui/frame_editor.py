@@ -7,11 +7,12 @@ import numpy as np
 from numpy.typing import NDArray
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import QGraphicsView, QLabel, QToolBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGraphicsView, QLabel, QVBoxLayout, QWidget
 
 from scanbench.domain import frame_edit
 from scanbench.domain.crop_region import CropRegion
 from scanbench.domain.frame_history import FrameHistory
+from scanbench.ui.flow_bar import FlowBar
 from scanbench.ui.guide_items import add_guide, remove_guides
 from scanbench.ui.qt_images import to_qimage
 from scanbench.ui.region_menus import RegionMenus
@@ -44,12 +45,12 @@ class EditorTools:
     """The toolbar and what it controls.
 
     Attributes:
-        toolbar: The toolbar.
+        toolbar: The tool buttons; they wrap into a second row when narrow.
         actions: Actions by key.
         zoom: Zoom controller.
     """
 
-    toolbar: QToolBar
+    toolbar: FlowBar
     actions: dict[str, QAction]
     zoom: ZoomControl
 
@@ -74,7 +75,7 @@ class FrameEditor(QWidget):
         self.hint.setWordWrap(True)
         self.history = FrameHistory()
         self._replaying = False
-        self.tools = EditorTools(QToolBar(), {}, ZoomControl(self.view))
+        self.tools = EditorTools(FlowBar(), {}, ZoomControl(self.view))
         self._build_tools()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
