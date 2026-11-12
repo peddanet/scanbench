@@ -3,6 +3,7 @@
 import json
 import re
 import shutil
+import threading
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
@@ -232,11 +233,16 @@ class PhotoSession:
         temporary.write_text(json.dumps(data + entries, indent=1) + "\n", encoding="utf-8")
         temporary.replace(index)
 
-    def accept(self, album: AlbumOptions) -> list[Path]:
+    def accept(self, album: AlbumOptions, cancel: threading.Event | None = None) -> list[Path]:
         """Cut, deskew and save the confirmed regions.
+
+        A cancel stops before the next photo. The saved photos are indexed;
+        the frames not yet saved stay waiting, so a second confirmation saves
+        only those.
 
         Args:
             album: Target folder and format.
+            cancel: Set to stop after the current photo.
 
         Returns:
             The written photos in region order.
@@ -260,6 +266,8 @@ class PhotoSession:
         pixels = self._store.load_rgb(scan.path)
         written, entries = [], []
         for offset, region in enumerate(scan.regions):
+            if cancel is not None and cancel.is_set():
+                break
             name = f"photo-{number + offset:04d}.{album.image_format.value}"
             target = self._store.save(ImageCropper.crop(pixels, region), album.folder / name,
                                       album.image_format, scan.dpi)
@@ -267,5 +275,6 @@ class PhotoSession:
             entries.append({"file": name, "scan": source, "dpi": scan.dpi,
                             "region": asdict(region)})
         self._index(album.folder, entries)
-        self.current = None
+        rest = scan.regions[len(written):]
+        self.current = replace(scan, regions=rest) if rest else None
         return written

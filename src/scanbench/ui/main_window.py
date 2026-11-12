@@ -1,11 +1,14 @@
 """Main window: one tab per use case, update menu, safe release switching."""
 
+import logging
 from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QMainWindow, QMessageBox, QTabWidget, QVBoxLayout, QWidget
 
 from scanbench.app_info import APP_NAME
+from scanbench.infrastructure.app_log import LOGGER
+from scanbench.ui.switch_banner import SwitchBanner
 
 TAB_TITLES = ("Documents", "Photo album")
 """Titles of the use-case tabs, in display order."""
@@ -44,6 +47,9 @@ class MainWindow(QMainWindow):
     switch_requested = Signal(str)
     """The window is idle and the switch to the given release may happen."""
 
+    cancel_requested = Signal()
+    """The user asked to switch now: the running job should be cancelled."""
+
     def __init__(self, version_text: str, confirm: Confirm = ask_switch,
                  tabs: Sequence[QWidget] = (), header: QWidget | None = None) -> None:
         """Build the widgets.
@@ -60,7 +66,8 @@ class MainWindow(QMainWindow):
         self._busy = 0
         # Reports work a restart would lose, e.g. an unconfirmed photo scan.
         self.unsaved: Callable[[], bool] = lambda: False
-        self._pending: tuple[str, bool] | None = None
+        self.banner = SwitchBanner()
+        self.banner.switch_now.connect(self._switch_now)
         self._version_text = version_text
         self.tabs = QTabWidget()
         pages = list(tabs) or [self._placeholder("No scanner support loaded.")
@@ -69,6 +76,7 @@ class MainWindow(QMainWindow):
             self.tabs.addTab(page, title)
         central = QWidget()
         layout = QVBoxLayout(central)
+        layout.addWidget(self.banner)
         if header is not None:
             layout.addWidget(header)
         layout.addWidget(self.tabs, 1)
@@ -122,14 +130,32 @@ class MainWindow(QMainWindow):
             text: The text.
         """
         self.statusBar().showMessage(text)
+        logging.getLogger(LOGGER).info("status: %s", text)
         self._try_pending()
 
     def _try_pending(self) -> None:
         """Carry out a waiting switch when the window is idle."""
-        if not self.is_busy() and self._pending is not None:
-            version, automatic = self._pending
-            self._pending = None
-            self.offer_switch(version, automatic)
+        if not self.is_busy() and self.banner.pending is not None:
+            pending = self.banner.take()
+            if pending is not None:
+                self.offer_switch(*pending)
+
+    def busy_reason(self) -> str:
+        """Describe why a switch has to wait.
+
+        Returns:
+            The end of the sentence "The window switches when ...".
+        """
+        if self._busy > 0:
+            return "the running job is done (or press Switch now)"
+        return "the open work is saved or discarded"
+
+    def _switch_now(self) -> None:
+        """Cancel the running job and switch as soon as the window is idle."""
+        if self.banner.pending is not None:
+            self.banner.pending = (self.banner.pending[0], True)
+        self.cancel_requested.emit()
+        self._try_pending()
 
     def is_busy(self) -> bool:
         """Whether a job runs or a restart would lose unsaved work.
@@ -157,9 +183,7 @@ class MainWindow(QMainWindow):
                 then no question is asked.
         """
         if self.is_busy():
-            self._pending = (version, automatic)
-            self.statusBar().showMessage(f"scanbench {version} installed; switching when "
-                                         "the current work is saved or discarded")
+            self.banner.wait_for(version, automatic, self.busy_reason())
             return
         if automatic or self._confirm(self, version):
             self.switch_requested.emit(version)

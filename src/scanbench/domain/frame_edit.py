@@ -189,6 +189,30 @@ def merged(regions: list[CropRegion]) -> CropRegion:
     return replace(first, cx=cx, cy=cy, width=max(us) - min(us), height=max(vs) - min(vs))
 
 
+def split(region: CropRegion, across: bool) -> tuple[CropRegion, CropRegion]:
+    """Cut a frame into two halves, e.g. when two photos were found as one.
+
+    The halves keep skew and turn; the user then adjusts each one.
+
+    Args:
+        region: The frame.
+        across: True for top and bottom halves (cut along the width), False
+            for left and right halves.
+
+    Returns:
+        Top and bottom, or left and right half.
+    """
+    halves = []
+    for sign in (-1, 1):
+        if across:
+            cx, cy = to_scan(region, 0.0, sign * region.height / 4)
+            halves.append(replace(region, cx=cx, cy=cy, height=region.height / 2))
+        else:
+            cx, cy = to_scan(region, sign * region.width / 4, 0.0)
+            halves.append(replace(region, cx=cx, cy=cy, width=region.width / 2))
+    return halves[0], halves[1]
+
+
 def summary(region: CropRegion, dpi: int) -> str:
     """Describe size, skew and output turn of a frame.
 
