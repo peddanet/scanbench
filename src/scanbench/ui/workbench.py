@@ -10,6 +10,7 @@ from scanbench.application.photo_session import PhotoSession
 from scanbench.application.session_handover import Handover
 from scanbench.infrastructure.app_paths import AppPaths
 from scanbench.infrastructure.cups_client import CupsClient
+from scanbench.infrastructure.device_cache import DeviceCache
 from scanbench.infrastructure.image_store import ImageStore
 from scanbench.infrastructure.pdf_writer import PdfWriter
 from scanbench.infrastructure.photo_detector import PhotoDetector
@@ -26,6 +27,9 @@ from scanbench.ui.task_runner import TaskRunner
 
 TEST_DEVICE_VARIABLE = "SCANBENCH_TEST_DEVICE"
 """Set to 1 to offer SANE's virtual test scanner in the device list."""
+
+DEVICE_CACHE = "devices.json"
+"""Device cache file in the cache directory."""
 
 
 @dataclass
@@ -100,7 +104,8 @@ def build_workbench(paths: AppPaths, include_test: bool | None = None) -> Workbe
     runner = TaskRunner()
     if include_test is None:
         include_test = os.environ.get(TEST_DEVICE_VARIABLE) == "1"
-    devices = DeviceBar(scanner, runner, include_test)
+    devices = DeviceBar(scanner, runner, include_test,
+                        DeviceCache(paths.cache_dir / DEVICE_CACHE))
     progress = ProgressPanel()
     context = TabContext(devices, runner, cups, Dialogs(print_asker(cups)), progress)
     documents = DocumentTab(
