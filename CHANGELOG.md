@@ -4,7 +4,7 @@ All notable changes are documented here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning 2.0.0](https://semver.org/).
 
-## [Unreleased]
+## [0.2.7] - 2026-11-12
 
 ### Added
 
