@@ -1,9 +1,10 @@
 """Combo boxes for source, mode, resolution and paper that follow the device."""
 
+from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
-from PySide6.QtWidgets import QComboBox, QFormLayout
+from PySide6.QtWidgets import QComboBox, QFormLayout, QWidget
 
 from scanbench.domain.color_mode import ColorMode
 from scanbench.domain.device_options import DeviceOptions
@@ -67,17 +68,20 @@ class SettingsPanel:
         if self.paper is not None:
             fill(self.paper, [(p.name, p) for p in DOCUMENT_FORMATS])
 
-    def add_rows(self, form: QFormLayout) -> None:
+    def add_rows(self, form: QFormLayout,
+                 wrap: Callable[[str, QWidget], QWidget] | None = None) -> None:
         """Add the combo boxes to a form.
 
         Args:
             form: Target form.
+            wrap: Wraps a combo box by its setting name (``source``, ``colour``,
+                ``resolution``, ``paper``), e.g. with a source badge.
         """
-        rows = (("Source:", self.source), ("Colour:", self.mode),
-                ("Resolution:", self.resolution), ("Paper:", self.paper))
-        for label, combo in rows:
+        rows = (("Source:", "source", self.source), ("Colour:", "colour", self.mode),
+                ("Resolution:", "resolution", self.resolution), ("Paper:", "paper", self.paper))
+        for label, name, combo in rows:
             if combo is not None:
-                form.addRow(label, combo)
+                form.addRow(label, combo if wrap is None else wrap(name, combo))
 
     def _combos(self) -> list[QComboBox]:
         """Return the combos that follow the device.
