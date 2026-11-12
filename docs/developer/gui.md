@@ -84,6 +84,19 @@ before the search of this run has finished is checked by reading its options
 **Search scanners** forgets the options of the selected device first. Every
 change is written back (`_remember`), atomically via a temporary file.
 
+## Large scans
+
+Qt 6 refuses to decode an image whose pixels need more than the allocation
+limit (`QImageReader.allocationLimit()`, 256 MB by default; environment
+variable `QT_IMAGEIO_MAXALLOC`). A 1200 dpi area scan exceeds it. The frame
+editor therefore never loads a scan file with `QPixmap(path)`:
+`qt_images.read_preview` reads the size from the header, sets a scaled size
+(longest side `MAX_PREVIEW` = 1600 px) and raises the limit for this one read
+to what the file needs, then restores it. Frames stay in scan pixels
+(`RegionView.frame_size` is the full size). If reading fails, `FrameEditor`
+shows the reason in the details line; cropping and saving do not use Qt
+(Pillow/OpenCV), so confirming still works.
+
 ## Graphics items and Python references
 
 The frame editor (`RegionView`) never calls `QGraphicsScene.clear()`. A

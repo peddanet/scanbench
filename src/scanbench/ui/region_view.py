@@ -14,6 +14,7 @@ from scanbench.domain.crop_region import CropRegion
 from scanbench.domain.frame_handle import FrameHandle
 from scanbench.ui.frame_items import HandleItem, PictureItem, RegionItem, SketchBand
 from scanbench.ui.guide_items import remove_guides
+from scanbench.ui.qt_images import read_preview
 from scanbench.ui.region_menus import RegionMenus
 
 MAX_PREVIEW = 1600
@@ -103,25 +104,27 @@ class RegionView(QGraphicsView):
         """Show a scan with its regions, or clear the view.
 
         Args:
-            path: Scan file, an image (e.g. the page while it is scanned), or
-                None to clear.
+            path: Scan file (``OSError`` if unreadable; the view stays empty),
+                an image (e.g. the page while it is scanned), or None to clear.
             dpi: Resolution of the scan.
             regions: Regions in scan pixels.
         """
         self._clear()
         self.regions = list(regions)
         self.dpi = dpi
+        self.picture.setPixmap(QPixmap())     # stays empty if there is nothing to show
         if path is None:
-            self.picture.setPixmap(QPixmap())
             self.scene().setSceneRect(QRectF())
             return
-        full = QPixmap.fromImage(path) if isinstance(path, QImage) else QPixmap(str(path))
-        self.frame_size = (full.width(), full.height())
-        self.scale_factor = min(1.0, MAX_PREVIEW / max(1, full.width(), full.height()))
-        self.picture.setPixmap(full.scaled(round(full.width() * self.scale_factor),
-                                           round(full.height() * self.scale_factor),
-                                           Qt.AspectRatioMode.KeepAspectRatio,
-                                           Qt.TransformationMode.SmoothTransformation))
+        if isinstance(path, QImage):
+            image, self.frame_size = path, (path.width(), path.height())
+        else:
+            image, self.frame_size = read_preview(path, MAX_PREVIEW)
+        self.scale_factor = min(1.0, MAX_PREVIEW / max(1, *self.frame_size))
+        self.picture.setPixmap(QPixmap.fromImage(image).scaled(
+            round(self.frame_size[0] * self.scale_factor),
+            round(self.frame_size[1] * self.scale_factor),
+            Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         self.scene().setSceneRect(self.picture.boundingRect())
         self.mode.fit = True
         self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
