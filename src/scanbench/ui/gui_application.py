@@ -166,6 +166,7 @@ class GuiApplication:
             self.watcher.new_release.connect(self._on_new_release)
         self._take_over(bench, self.window)
         self.window.show()
+        bench.devices.restore()
         bench.devices.refresh()
         return self.window
 
