@@ -109,6 +109,18 @@ class AppPaths:
         return self._xdg("XDG_DATA_HOME", ".local/share") / APP_NAME
 
     @property
+    def sessions_dir(self) -> Path:
+        """Directory of saved sessions and of the handover to a new release.
+
+        Returns:
+            The sessions directory.
+        """
+        root = self._root()
+        if root is not None:
+            return root / "sessions"
+        return self._xdg("XDG_DATA_HOME", ".local/share") / APP_NAME / "sessions"
+
+    @property
     def applications_dir(self) -> Path:
         """Directory searched by desktops for ``.desktop`` files.
 

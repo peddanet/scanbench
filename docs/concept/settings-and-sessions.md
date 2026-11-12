@@ -50,6 +50,7 @@ It rests on three ideas:
 | S4 | Sessions can be saved and loaded; work can stop in the evening and continue the next day. |
 | S5 | Very large sessions (many pages or album scans over several days) are possible. |
 | S6 | The interface stays clear; the user always sees what is being done. |
+| S7 | Every session belongs to a **project with a name** (request of 2026-11-12, see [5.8](#58-projects)). |
 
 ### 1.2 Constraints found in the scanner reference
 
@@ -62,7 +63,25 @@ It rests on three ideas:
 | Ghostscript reduction must always start from the original; cascades have no or bad effect (DownsampleThreshold 1.5, effective DPI). | reference 12 | Every preview and every output is produced from the lossless original. |
 | Fixed device name instead of an automatically detected one, because detection failed with two active network interfaces. | reference 14 | The device profile stores a fixed device name; detection is only an offer. |
 
-### 1.3 What this concept does not add
+### 1.3 Editor requests of 2026-11-12, planned before 0.3.0
+
+| Request | Release |
+|---|---|
+| zoom in and out of the preview | 0.2.3 |
+| horizontal and vertical guide lines, pulled out of a ruler and removed again | 0.2.3 |
+| undo and redo buttons for all frame edits | 0.2.3 |
+| exact values per photo (angle, width, height) | 0.2.3 |
+| preview scan at 75 to 150 dpi, then a high-resolution scan of only the area around the photos | 0.2.3 (done) |
+| live scan progress: image building up, progress bar, page counter, times; cancel | 0.2.3 (done) |
+| separate photos lying edge to edge; draw frames by hand; merge frames | 0.2.3 (done) |
+| frame sides exactly on the photo edges, no light strip | 0.2.3 (done) |
+| frame numbers visible, previous/next photo | 0.2.3 (done) |
+| version in the status bar; open work kept across a release switch | 0.2.3 (done, minimal handover; full sessions 0.3.1) |
+
+The first four rows of the table were planned for 0.2.3, the preview scan and
+progress for 0.2.4; on request they were delivered together in 0.2.3.
+
+### 1.4 What this concept does not add
 
 No functions beyond the reference and the existing requests. The following
 are listed as candidates only, without design: blank-page removal, OCR, PDF/A
@@ -181,6 +200,34 @@ contains the exact external command, e.g. the `scanimage` arguments and the
 exports a runnable script in the style of the scanner reference. This makes
 the application's work traceable and reproducible without the GUI.
 
+### 3.4 Progress while scanning and processing
+
+Requested on 2026-11-12: the scan must be visible while it runs, in the
+preview scan and in the normal scan, with a progress bar and figures in the
+status bar.
+
+| Element | Content |
+|---|---|
+| live image | the page builds up line by line in the preview while the scanner delivers it |
+| progress bar | progress of the current page in percent |
+| status bar | `Page 3 of 10` (flatbed, known count) or `Page 3 of ?` (feeder, count unknown); elapsed time, estimated remaining time of the page, resolution, size of the page so far |
+| processing | separate progress for detection, cropping and PDF output, e.g. `Saving photo 2 of 4` |
+| cancel | a **Cancel** button stops the scan; already finished pages stay |
+
+Technical basis, checked with `scanimage` and the SANE test device
+(2026-11-12):
+
+| Fact | Use |
+|---|---|
+| `scanimage --progress` writes `Progress: 12.4%` lines to the error output | progress bar of the current page |
+| in batch mode it writes `Scanning page N` and `Scanned page N.` | page counter |
+| with `--format=pnm` the image is written as an uncompressed stream (`P6` header, then the rows) | rows can be shown as they arrive; scanbench converts to PNG afterwards |
+
+Open point, to be measured on the real device: network backends may receive
+a page only as a whole (eSCL and WSD transfer finished image files). Then
+the live image appears at once at the end of the page and the percentage
+jumps; the page counter and the elapsed time still work.
+
 ## 4. Configuration model
 
 ### 4.1 Layers
@@ -289,11 +336,47 @@ below `~/scripts`.
 | speed | thumbnails are cached in `thumbs/`; the list is loaded lazily |
 | end of a session | **Finish** saves the outputs and then asks whether to delete the raw scans; the default is to keep them (decision D9) |
 
-### 5.6 Effect on release switching
+### 5.6 Browsing and finishing an album session
+
+Requested on 2026-11-12:
+
+| Function | Design |
+|---|---|
+| Browse confirmed pages | **Back / Forward** buttons and a page strip show every confirmed scan with its frames and the photos cut from it. A confirmed page can be reopened: frames corrected, photos cut again from the kept raw scan (needs "keep raw scans") |
+| Browse photos | a grid of all saved photos of the session; double-click opens the photo large, with zoom |
+| Finish | **Finish album** ends the session: the user names the album (folder name and title), chooses the outputs and confirms |
+| Outputs on finishing | the photo folder (always); optionally a **PDF album** with one or more photos per page, title page and captions; later an archive or rclone upload (M4) |
+
+### 5.7 Effect on release switching
 
 Because every command is saved immediately, a switch to a new release no longer
 has to wait for "unsaved work". The new release reopens the sessions that were
 open, in the state they had. Only a running scan still postpones the switch.
+
+0.2.3 has a minimal form of this: before the switch the window writes a
+handover (`sessions/handover/`: scanner, tab, the waiting photo scan with its
+frames, the document pages) and the new window takes it over once.
+
+### 5.8 Projects
+
+Requested on 2026-11-12: every session belongs to a project, and projects have
+names.
+
+| Rule | Design |
+|---|---|
+| name at the start | a new photo album or document job first asks for the project name |
+| folder | the album folder (and the session directory) is named after the project, e.g. `~/Pictures/Family 1970s/` |
+| rename at any time | renaming the project renames the folder, the session directory and the title in `album.json` and `session.json` in one step; open windows follow |
+| over days | the start list shows the projects; choosing one continues its session |
+
+Open points (decisions before 0.3.1):
+
+| # | Question | Proposal |
+|---|---|---|
+| D12 | characters in folder names | keep letters (also umlauts), digits, space, `-`, `_`; replace `/` and control characters; the display name keeps everything |
+| D13 | renaming onto an existing folder | refuse with a message; never merge silently |
+| D14 | documents and photos in one project | a project can hold both kinds; each kind has its own sub-folder |
+| D15 | where photo folders live | below a base folder chosen once (default `~/Pictures`); the project name is the sub-folder |
 
 ## 6. Keeping the overview: screen layout
 
@@ -398,9 +481,9 @@ Each increment is a release with all quality gates, as before.
 | Release | Content | Requirements |
 |---|---|---|
 | 0.3.0 | settings schema and stack; TOML files; generated settings form with sections, tooltips, badges, reset; summary line; presets; user-guide options table generated from the schema | S1, S2 (T), S3, S6 |
-| 0.3.1 | persistent sessions: autosave, lock, open, recent list, continue on start, finish with raw-scan question; release switch with session reopen | S4, S5 |
+| 0.3.1 | projects with names and renameable folders; persistent sessions: autosave, lock, open, recent list, continue on start; browse confirmed pages and photos; finish with PDF album and raw-scan question; release switch with session reopen | S4, S5, S7 |
 | 0.3.2 | live figures and previews: size estimates and measured values, PDF page comparison, encoder comparison, detection overlay, duplex result preview | S2 (F, P) |
-| 0.3.3 | activity log with commands and shell-script export; undo/redo; prescan; calibration wizard writing the device profile (turns "assumed" into "measured") | S2, S6 |
+| 0.3.3 | activity log with commands and shell-script export; calibration wizard writing the device profile (turns "assumed" into "measured") (undo/redo and the preview scan came with 0.2.3) | S2, S6 |
 
 The "Entwurf" (first draft) requested on 2026-11-12 is increment 0.3.0.
 

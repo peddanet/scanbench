@@ -161,7 +161,7 @@ def test_workbench_builds_and_cleans_up(tmp_path: Path, qtbot: QtBot,
     for widget in (bench.devices, bench.documents, bench.photos):
         qtbot.addWidget(widget)
     work = Path(bench.work.name)
-    assert work.parent == tmp_path / "cache" and not bench.unsaved()
+    assert work.parent == tmp_path / "cache"
     bench.devices.refresh()
     idle(qtbot, bench.runner)
     assert bench.devices.combo.findData("test") >= 0

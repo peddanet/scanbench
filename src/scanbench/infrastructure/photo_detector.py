@@ -10,6 +10,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from scanbench.domain.crop_region import CropRegion
+from scanbench.domain.paper_format import PHOTO_PRESETS
+from scanbench.infrastructure.edge_refiner import EdgeRefiner
+from scanbench.infrastructure.frame_splitter import FrameSplitter
 
 Rect = tuple[Sequence[float], Sequence[float], float]
 """OpenCV rotated rectangle: centre, size, angle."""
@@ -131,17 +134,32 @@ class PhotoDetector:
         mask = (lightness >= peak) & (lightness < peak + 4)
         return np.asarray(np.median(lab[mask], axis=0), dtype=np.float32)
 
-    def mask(self, small: NDArray[np.uint8]) -> NDArray[np.uint8]:
-        """Return the foreground mask at work resolution.
+    def distance(self, small: NDArray[np.uint8]) -> NDArray[np.float64]:
+        """Return the colour distance of every pixel from the lid colour.
 
         Args:
             small: RGB image at WORK_DPI.
 
         Returns:
-            255 for photo pixels, 0 for background.
+            Lab distance per pixel.
         """
         lab = u8(cv2.cvtColor(small, cv2.COLOR_RGB2LAB))
-        distance = np.linalg.norm(lab.astype(np.float64) - self.background(lab), axis=2)
+        return np.asarray(np.linalg.norm(lab.astype(np.float64) - self.background(lab),
+                                         axis=2), dtype=np.float64)
+
+    def mask(self, small: NDArray[np.uint8],
+             distance: NDArray[np.float64] | None = None) -> NDArray[np.uint8]:
+        """Return the foreground mask at work resolution.
+
+        Args:
+            small: RGB image at WORK_DPI.
+            distance: Precomputed colour distance, or None.
+
+        Returns:
+            255 for photo pixels, 0 for background.
+        """
+        if distance is None:
+            distance = self.distance(small)
         colour = np.where(distance > self._tuning.color_distance, 255, 0).astype(np.uint8)
         gray = cv2.GaussianBlur(cv2.cvtColor(small, cv2.COLOR_RGB2GRAY), (3, 3), 0)
         edges = cv2.Canny(gray, 20, 60)
@@ -170,6 +188,41 @@ class PhotoDetector:
             return None
         return rect
 
+    def _cues(self, small: NDArray[np.uint8]) -> tuple[NDArray[np.float64], NDArray[np.uint8],
+                                                       NDArray[np.uint8]]:
+        """Compute what the detection and the splitter look at.
+
+        Args:
+            small: Scan reduced to the work resolution.
+
+        Returns:
+            Colour distance from the lid, filled foreground mask and edge image.
+        """
+        distance = self.distance(small)
+        edges = u8(cv2.Canny(cv2.GaussianBlur(cv2.cvtColor(small, cv2.COLOR_RGB2GRAY),
+                                              (3, 3), 0), 20, 60))
+        return distance, self.mask(small, distance), edges
+
+    def _frames(self, small: NDArray[np.uint8], work_mm: float) -> list[Rect]:
+        """Find and split the photo rectangles on the reduced scan.
+
+        Args:
+            small: Scan at the work resolution.
+            work_mm: Work pixels per millimetre.
+
+        Returns:
+            OpenCV rotated rectangles in work pixels (rough; the edge refiner
+            places the sides exactly).
+        """
+        cues = self._cues(small)
+        contours, _ = cv2.findContours(cues[1], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        min_side = self._tuning.min_side_mm * work_mm
+        splitter = FrameSplitter(2 * self._tuning.color_distance,
+                                 [(p.height_mm * work_mm, p.width_mm * work_mm)
+                                  for p in PHOTO_PRESETS])
+        return [part for rect in (self._rectangle(c, min_side) for c in contours)
+                if rect is not None for part in splitter.split(rect, cues, min_side)]
+
     def detect(self, pixels: NDArray[np.uint8], dpi: int) -> list[CropRegion]:
         """Find the photos on a scan.
 
@@ -184,12 +237,10 @@ class PhotoDetector:
         height, width = pixels.shape[:2]
         size = (max(1, round(width * factor)), max(1, round(height * factor)))
         small = u8(cv2.resize(pixels, size, interpolation=cv2.INTER_AREA))
-        contours, _ = cv2.findContours(self.mask(small), cv2.RETR_EXTERNAL,
-                                       cv2.CHAIN_APPROX_SIMPLE)
-        min_side = self._tuning.min_side_mm / 25.4 * dpi * factor
-        regions = [region_from_points(np.asarray(cv2.boxPoints(rect)), 1 / factor)
-                   .clamped(width, height)
-                   for rect in (self._rectangle(c, min_side) for c in contours)
-                   if rect is not None]
+        refiner = EdgeRefiner(self.background(u8(cv2.cvtColor(small, cv2.COLOR_RGB2LAB))),
+                              self._tuning.color_distance)
+        regions = [refiner.refine(pixels, region_from_points(np.asarray(cv2.boxPoints(rect)),
+                                                             1 / factor), dpi)
+                   .clamped(width, height) for rect in self._frames(small, dpi * factor / 25.4)]
         row = 30 / 25.4 * dpi      # photos whose centres differ < 3 cm share a row
         return sorted(regions, key=lambda r: (round(r.cy / row), r.cx))

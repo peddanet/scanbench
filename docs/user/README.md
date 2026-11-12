@@ -198,7 +198,9 @@ kept. **Print ...** prints the lossless pages ([section 7](#7-printing)).
 
 - Up to four photos fit on the A4 glass, e.g. three 10 x 15 cm landscape
   photos and one portrait photo, or three postcards.
-- Leave a few millimetres between the photos.
+- A few millimetres between the photos help, but photos lying edge to edge
+  are separated as well: along a light seam, or along the edge line between
+  two photos of a standard size (9 x 13, 10 x 15, postcard A6, 13 x 18 cm).
 - Skewed or 90-degree turned photos are detected. Close the lid.
 
 ### 6.2 Settings
@@ -209,34 +211,86 @@ kept. **Print ...** prints the lossless pages ([section 7](#7-printing)).
 | Resolution | 600 dpi | 300 dpi for small prints, 600 dpi for archiving |
 | Format | PNG (lossless) | JPEG (quality 92) is about a tenth of the size |
 | Album | `~/Pictures/scanbench-album` | remembered across restarts |
-| Fit frames to photo sizes | on | frames within 6 % of 9 x 13, 10 x 15, postcard A6 or 13 x 18 cm get exactly that size |
+| Fit frames to photo sizes | on | frames within 6 % of 9 x 13, 10 x 15, postcard A6 or 13 x 18 cm get exactly that size, but never grow by more than 1 mm per side (that would show the lid) |
 | Keep full-page scans | off | also stores the whole page in `scans/` |
 
-The scan always covers the whole A4 frame, the largest possible photo frame.
+### 6.3 Preview first, then scan only the photos
 
-### 6.3 Check and correct the frames
+High resolutions take long for the whole glass (a full A4 page at 1200 dpi
+takes minutes). The fast way:
 
-After **Scan page** every found photo has a blue frame with its number and an
-arrow pointing to the side that becomes the top.
+| Step | Button | What happens |
+|---|---|---|
+| 1 | **Preview scan** | the whole glass at the lowest resolution of at least 75 dpi; the photos are found |
+| 2 | correct the frames | as in [section 6.4](#64-check-and-correct-the-frames); delete or draw frames |
+| 3 | **Scan photos** | only the area around all frames (plus 3 mm) at the chosen resolution; the frames are taken over |
+| 4 | **Confirm N photo(s)** | as in [section 6.5](#65-confirm-and-continue) |
+
+**Scan whole page** skips the preview and scans the whole A4 frame at the
+chosen resolution. A preview cannot be confirmed.
+
+**Progress:** while scanning, the image builds up in the preview and the
+status bar shows a progress bar and e.g. `Page 1 of 1 · 45 % · 0:12 · about
+0:15 left`; in the feeder the page count is `Page 3 of ?`. **Cancel** stops
+the scan; pages already scanned from the feeder are kept.
+
+| Scanner backend | Resolutions | Note |
+|---|---|---|
+| `pixma` (USB or network) | up to 2400 dpi | the preview is worth it from 600 dpi on |
+| `airscan` (eSCL) | usually 150, 300, 600 dpi | the backend decides what it offers |
+
+### 6.4 Check and correct the frames
+
+![Frame editor with toolbar](img/photo-frame-editor.png)
+
+After a scan every found photo has a blue frame with its number in a blue box
+at the top-left corner (the number of the photo in this scan, also used in
+`album.json`) and an arrow pointing to the side that becomes the top. The
+sides are placed on the photo edges at full resolution: lid colour, a light
+strip up to 1.5 mm and the grey shadow line along an edge are left outside.
+A print border that clearly differs from the lid (grey, coloured) stays part
+of the photo; a white or cream border close to the lid colour cannot be told apart
+from the lid and may be left outside, as with prints 1 and 3 in the picture
+above. Then drag the side grips outwards, or use **Exact values ...**.
+
+Every command below changes **only the selected frame**; each photo has its
+own size, skew and turn.
+
+**Toolbar above the preview**
+
+| Button | Key | Effect |
+|---|---|---|
+| Undo / Redo | Ctrl+Z / Ctrl+Shift+Z | step back and forth through frame changes; a new scan starts a new history |
+| Zoom in / Zoom out | Ctrl++ / Ctrl+-, or Ctrl + mouse wheel | magnify the preview, up to 16 x |
+| Fit / 100 % | Ctrl+0 / Ctrl+1 | whole scan / one scan pixel per screen pixel |
+| Draw frame | D (Esc stops) | drag on the scan to draw a new frame (at least 5 mm), e.g. when a photo was not found |
+| Horizontal guide / Vertical guide | H / V | magenta dashed line to align frames; drag it into place |
+| Remove guides | | removes all guides; a single guide: drag it out of the scan or right-click > Remove guide |
+| Exact values ... | E | width, height (mm, 0.1 steps), skew (0.1° steps) and turn of the selected frame |
+| Previous photo / Next photo | PgUp / PgDown | select the frame with the next lower / higher number and show it |
+
+**Mouse and keyboard on a frame**
 
 | You want to | Do this |
 |---|---|
 | see the values of a frame | click it; the line below the preview shows size, skew and orientation, e.g. `Frame 2: 100 x 70 mm, skew -0.8°, saved as framed` |
-| move a frame | drag it, or arrow keys (1 mm; with Shift 10 mm) |
+| move a frame | drag it, or arrow keys: one screen pixel (with Shift ten); zoom in for finer steps, down to one scan pixel |
 | resize a frame | drag a white grip on a side or corner; the opposite side stays |
 | rotate a frame freely | drag the orange grip above the top edge; hold Shift for 0.5° steps; `+` / `-` turn by 0.1° |
 | turn the saved photo by 90° or 180° | right-click > Rotate 90° clockwise / counter-clockwise / 180° |
 | remove the skew | right-click > Align horizontally (remove skew) |
 | give it an exact photo size | right-click > Fit to size > 9 x 13 cm ... |
 | delete a frame | right-click > Delete frame, or the Delete key |
-| add a frame | right-click on free space > Add frame here > size, or Add frame: whole page |
+| add a frame | **Draw frame**, or right-click on free space > Add frame here > size, or Add frame: whole page |
+| join frames (one photo was split by mistake) | select both (Ctrl + click), right-click > Merge 2 selected frames |
+| type exact values | right-click > Exact values ..., or **E** |
 
 The orange grip marks the top of the frame: if you rotate a frame so that the
 grip points to the right, the photo is saved turned accordingly. The result is
 always a straight rectangle: photos are only rotated, never distorted into a
 trapezoid.
 
-### 6.4 Confirm and continue
+### 6.5 Confirm and continue
 
 **Confirm N photo(s)** cuts, straightens and saves the photos as
 `photo-0001.png`, `photo-0002.png` ...; numbering continues after the highest
@@ -303,7 +357,15 @@ switched in one atomic step. The active and the previous release are kept.
 |---|---|
 | update started from this window (**scanbench > Update ...**) | switches automatically when done |
 | update installed from a terminal or another window | asks "Switch to it now?" |
-| a scan, save or print job runs, a photo scan waits for confirmation, or a document is unsaved | waits and switches when the work is done, saved or discarded |
+| a scan, save or print job runs | waits and switches when the job is done |
+
+**The open work is handed over:** the new window selects the same scanner,
+opens the same tab and shows the photo scan waiting for confirmation (with
+its frames) and the pages of the unsaved document. The raw scans are copied
+to `sessions/handover/` below the installation directory (or
+`~/.local/share/scanbench/sessions/handover/`) and removed once the new window
+has taken them over. The window title and the right end of the status bar
+show the running version.
 
 A window started from a git clone (source checkout) never switches.
 

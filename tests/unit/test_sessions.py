@@ -18,6 +18,7 @@ from scanbench.domain.scan_source import ScanSource
 from scanbench.infrastructure.image_store import ImageStore
 from scanbench.infrastructure.pdf_writer import PdfWriter
 from scanbench.infrastructure.photo_detector import PhotoDetector
+from scanbench.infrastructure.scan_observer import ScanObserver
 from scanbench.infrastructure.settings_store import SettingsStore
 
 FEEDER = ScanSettings(ScanSource.ADF)
@@ -120,6 +121,35 @@ def test_photo_scan_confirm_and_numbering(tmp_path: Path) -> None:
     assert session.current is None
     with pytest.raises(ScanError, match="no scan"):
         session.accept(AlbumOptions(album))
+
+
+def test_photo_preview_then_area_scan(tmp_path: Path) -> None:
+    """A low-resolution preview finds the frames; the area scan keeps them.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    truth = Placed(150, 100, 100, 200, 1.0)
+    scanner = FakeScanner([scan([truth])], DPI)
+    session = PhotoSession(scanner, PhotoDetector(), ImageStore(), tmp_path)
+    with pytest.raises(ScanError, match="preview"):
+        session.scan_area("dev", ScanSettings(resolution=100), OPTIONS)
+    reports: list[float] = []
+    preview = session.preview("dev", ScanSettings(resolution=100), OPTIONS,
+                              observer=ScanObserver(progress=lambda r: reports.append(r.percent)))
+    assert preview.preview and preview.dpi == 75 and len(preview.regions) == 1 and reports
+    with pytest.raises(ScanError, match="preview"):
+        session.accept(AlbumOptions(tmp_path / "album"))
+    full = session.scan_area("dev", ScanSettings(resolution=100), OPTIONS)
+    area = scanner.requests[-1].area
+    assert area is not None and area.width < 170 and area.height < 120
+    assert not full.preview and full.dpi == DPI
+    region = full.regions[0]
+    mm = DPI / 25.4
+    assert abs(region.cx / mm + area.left - truth.cx_mm) < 2
+    assert abs(region.cy / mm + area.top - truth.cy_mm) < 2
+    assert abs(region.width / mm - 150) < 2 and abs(region.angle - 1.0) < 0.5
+    assert len(session.accept(AlbumOptions(tmp_path / "album"))) == 1
 
 
 def test_photo_detect_discard_and_broken_index(tmp_path: Path) -> None:

@@ -108,6 +108,8 @@ def test_fit_and_snap_to_presets() -> None:
     assert (snapped.width, snapped.height) == (1500, 1000)
     portrait = CropRegion(500, 500, 1012, 1490).snapped(PHOTO_PRESETS, dpi)
     assert (portrait.width, portrait.height) == (1000, 1500)
+    small = CropRegion(500, 500, 1460, 1000)          # would grow 2 mm per side
+    assert small.snapped(PHOTO_PRESETS, dpi) is small
     odd = CropRegion(500, 500, 700, 700)
     assert odd.snapped(PHOTO_PRESETS, dpi) is odd
     assert odd.fitted(PHOTO_PRESETS[0], dpi).width == 1300   # square counts as landscape

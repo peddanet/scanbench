@@ -11,6 +11,7 @@ class _Relay(QObject):
 
     done = Signal(object)
     failed = Signal(str)
+    progress = Signal(object)
 
 
 class _Job(QRunnable):
@@ -21,7 +22,7 @@ class _Job(QRunnable):
 
         Args:
             work: Function to run.
-            relay: Object whose signals report the outcome.
+            relay: Object whose signals report the outcome and the progress.
         """
         super().__init__()
         self._work = work
@@ -78,14 +79,17 @@ class TaskRunner(QObject):
         """
         return bool(self._relays)
 
-    def run(self, work: Callable[[], Any], on_done: Callable[[Any], None],
-            on_error: Callable[[str], None]) -> None:
+    def run(self, work: Callable[..., Any], on_done: Callable[[Any], None],
+            on_error: Callable[[str], None],
+            on_progress: Callable[[Any], None] | None = None) -> None:
         """Run a job; the callbacks run in the GUI thread.
 
         Args:
-            work: Function to run in the background.
+            work: Function to run in the background. With ``on_progress`` it is
+                called with one argument, a function that reports progress.
             on_done: Receives the result.
             on_error: Receives the error message.
+            on_progress: Receives the reported progress items, or None.
         """
         relay = _Relay()
         self._relays.add(relay)
@@ -100,8 +104,11 @@ class TaskRunner(QObject):
         relay.failed.connect(finish)
         relay.done.connect(on_done)
         relay.failed.connect(on_error)
+        if on_progress is not None:
+            relay.progress.connect(on_progress)
+        job = _Job(work if on_progress is None else lambda: work(_reporter(relay)), relay)
         self.started.emit()
-        self._pool.start(_Job(work, relay))
+        self._pool.start(job)
 
     def wait(self, msecs: int = 30000) -> bool:
         """Wait until all jobs are done (used at shutdown and in tests).
@@ -113,3 +120,25 @@ class TaskRunner(QObject):
             True if all jobs ended in time.
         """
         return self._pool.waitForDone(msecs)
+
+
+def _reporter(relay: _Relay) -> Callable[[object], None]:
+    """Return a function that sends progress items to the GUI thread.
+
+    Args:
+        relay: The job's relay.
+
+    Returns:
+        The report function.
+    """
+    def report(item: object) -> None:
+        """Send one item.
+
+        Args:
+            item: Anything the job wants to show.
+        """
+        try:
+            relay.progress.emit(item)
+        except RuntimeError:
+            pass  # window closed while the job ran
+    return report
