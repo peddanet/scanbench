@@ -6,6 +6,13 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Print dialog: readable names instead of driver keywords (paper sizes with
+  dimensions, trays, duplex, colour); photo sizes marked "Photo ..." and
+  listed after a separator; the keyword is the tooltip. A hint says when
+  the driver offers no CD/DVD tray.
+
 ## [0.2.3] - 2026-11-12
 
 ### Added

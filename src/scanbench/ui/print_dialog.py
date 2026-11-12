@@ -13,8 +13,9 @@ class PrintDialog(QDialog):
     """Show every CUPS printer and the options its driver offers.
 
     The option list is read with ``lpoptions -l`` for the selected printer,
-    so tray names such as photo tray or CD/DVD tray appear exactly as the
-    driver (PPD) defines them. Only changed options are sent with the job.
+    so the trays (photo tray, CD/DVD tray) and sizes are exactly those of the
+    driver (PPD); they are shown with readable labels, photo sizes marked.
+    Only changed options are sent with the job.
     """
 
     def __init__(self, cups: CupsClient, title: str, parent: QWidget | None = None,
@@ -39,6 +40,7 @@ class PrintDialog(QDialog):
         self.options = OptionForm()
         self.error = QLabel()
         self.error.setWordWrap(True)
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
                                    | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
@@ -65,6 +67,7 @@ class PrintDialog(QDialog):
         layout.addLayout(top)
         layout.addWidget(QLabel("Driver options:"))
         layout.addWidget(scroll, 1)
+        layout.addWidget(self.options.hint)
         layout.addWidget(self.error)
         layout.addWidget(buttons)
 

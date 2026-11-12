@@ -324,7 +324,7 @@ scanbench printers
 | Printer | all CUPS queues; the default printer is preselected |
 | Copies | 1 to 99 |
 | Scale to fit the page | `-o fit-to-page`; preselected for photos |
-| Driver options | one choice per option of the driver (PPD), important ones first: paper source (`InputSlot`), media type, page size, colour, quality, duplex |
+| Driver options | one choice per option of the driver (PPD), important ones first: paper source (`InputSlot`), media type, page size, colour, quality, duplex; readable names instead of driver keywords (the keyword is the tooltip) |
 
 ![Print dialog with example driver options](img/print-dialog.png)
 
@@ -336,9 +336,20 @@ Only options you change are sent; everything else keeps the printer defaults.
 | photo 10 x 15 cm | photo tray or rear tray | glossy photo paper | 10x15 / 4x6 |
 | printable CD/DVD | CD/DVD tray | printable disc | disc size of the driver |
 
-The names come from the printer driver. A CD/DVD tray is only offered if the
-installed driver supports it; the driverless IPP Everywhere queue often has
-fewer options than the manufacturer's driver.
+The choices come from the printer driver; scanbench shows them with readable
+names: `4x6.Borderless` becomes "Photo 10 x 15 cm (4 x 6 in), borderless",
+`ByPassTray` "Rear tray (manual feed)", `DuplexNoTumble` "Two-sided, flip on
+long edge (book)". Photo sizes (9 x 13, 10 x 15, 13 x 18, 20 x 25 cm,
+postcard) are listed below the other sizes, after a separator.
+
+A CD/DVD tray is only offered if the installed driver supports it; the
+driverless IPP Everywhere queue often has fewer options than the
+manufacturer's driver. If the driver has no disc tray, the dialog says so
+below the options. Which choices your driver has (normal user, reads only):
+
+~~~bash
+lpoptions -p QUEUE -l
+~~~
 
 ## 8. Updating
 
