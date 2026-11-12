@@ -4,6 +4,17 @@ All notable changes are documented here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning 2.0.0](https://semver.org/).
 
+## [0.3.2] - 2026-11-13
+
+### Added
+
+- Frame editor: rulers in centimetres along the top and the left edge; as in
+  GIMP, a guide line is pulled out of a ruler by pressing the mouse on it
+  and dragging onto the scan (top ruler: horizontal, left ruler: vertical).
+- Frame editor toolbar: symbols on every button (desktop icon theme for the
+  standard actions, drawn symbols for the others); the buttons look like
+  buttons.
+
 ## [0.3.1] - 2026-11-13
 
 ### Fixed
