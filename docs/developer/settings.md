@@ -3,8 +3,8 @@
 Back to: [Developer documentation](README.md) · [Architecture](architecture.md) · [Documentation home](../README.md)
 
 Increment 0.3.0 of the concept [Settings and sessions](../concept/settings-and-sessions.md)
-(sections 4 and 7). Sessions (0.3.2), the device profile layer and live
-previews (0.3.2, 0.3.3) come later.
+(sections 4 and 7). Sessions (0.4.0), the device profile layer and live
+previews (0.4.1, 0.4.2) come later.
 
 ## Modules
 
@@ -21,7 +21,7 @@ previews (0.3.2, 0.3.3) come later.
 
 | Priority | Layer | Badge | Filled by | Stored |
 |---|---|---|---|---|
-| 4 (highest) | `SESSION` | changed | edits in the form | no (sessions: 0.3.2) |
+| 4 (highest) | `SESSION` | changed | edits in the form | no (sessions: 0.4.0) |
 | 3 | `PRESET` | preset | the chosen preset of the tab | `presets/<tab>-<slug>.toml` |
 | 2 | `DEFAULT` | default | **Save as default**; settings with `remember` (album folder) at once | `settings.toml` |
 | 1 | `BUILT_IN` | built-in | `SettingDefinition.default` | program |

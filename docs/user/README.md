@@ -283,7 +283,10 @@ above. Then drag the side grips outwards, or use **Exact values ...**.
 Every command below changes **only the selected frame**; each photo has its
 own size, skew and turn.
 
-**Toolbar above the preview**
+**Toolbar above the preview.** Each button shows a symbol and its name; the
+standard ones (undo, zoom, previous/next) come from your desktop's icon theme,
+the others are drawn by scanbench. A narrow window puts the buttons on two
+rows.
 
 | Button | Key | Effect |
 |---|---|---|
@@ -291,10 +294,15 @@ own size, skew and turn.
 | Zoom in / Zoom out | Ctrl++ / Ctrl+-, or Ctrl + mouse wheel | magnify the preview, up to 16 x |
 | Fit / 100 % | Ctrl+0 / Ctrl+1 | whole scan / one scan pixel per screen pixel |
 | Draw frame | D (Esc stops) | drag on the scan to draw a new frame (at least 5 mm), e.g. when a photo was not found |
-| Horizontal guide / Vertical guide | H / V | magenta dashed line to align frames; drag it into place |
+| Horizontal guide / Vertical guide | H / V | magenta dashed line to align frames; drag it into place. Quicker, as in GIMP: press the mouse on the ruler at the top (horizontal guide) or on the left (vertical guide) and drag the line onto the scan; released outside the scan it is not kept |
 | Remove guides | | removes all guides; a single guide: drag it out of the scan or right-click > Remove guide |
 | Exact values ... | E | width, height (mm, 0.1 steps), skew (0.1° steps) and turn of the selected frame |
 | Previous photo / Next photo | PgUp / PgDown | select the frame with the next lower / higher number and show it |
+
+**Rulers.** Along the top and the left edge of the preview, in centimetres
+from the top-left corner of the scan; they follow zoom and scrolling. Several
+guides pulled out of them show at a glance whether the frames sit straight
+on the photos.
 
 **Mouse and keyboard on a frame**
 
