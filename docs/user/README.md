@@ -345,7 +345,17 @@ postcard) are listed below the other sizes, after a separator.
 A CD/DVD tray is only offered if the installed driver supports it; the
 driverless IPP Everywhere queue often has fewer options than the
 manufacturer's driver. If the driver has no disc tray, the dialog says so
-below the options. Which choices your driver has (normal user, reads only):
+below the options. Templates such as `Custom.WIDTHxHEIGHT` are not offered,
+because they cannot be sent as they are.
+
+**PIXMA MX92x with the driverless queue:** the sources are `Auto`, `Top`
+(upper cassette) and `Bottom` (lower cassette); there is no CD/DVD tray. The
+upper cassette takes 10 x 15 and 13 x 18 cm photo paper; with **Automatic**
+the printer takes photo paper from it when one of these sizes is chosen, so
+choosing the size is enough
+([Canon manual: paper sources](https://ij.manual.canon/ij/webmanual/Manual/W/MX920%20series/EN/BG/Bg-Loading1100.html)).
+
+Which choices your driver has (normal user, reads only):
 
 ~~~bash
 lpoptions -p QUEUE -l
