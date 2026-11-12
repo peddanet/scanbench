@@ -4,10 +4,25 @@ All notable changes are documented here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning 2.0.0](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] - 2026-11-12
 
 ### Added
 
+- Settings model: every option is described once (schema); its value comes
+  from the highest of the layers built-in, default, preset and changed. Each
+  option shows a badge of its source and a reset button; options beyond the
+  basic ones are in collapsible sections (Frames, Output) whose titles count
+  the set values; a summary line shows the effective values of the tab.
+- Presets per tab: save the current values under a name, choose a preset,
+  "(no preset)"; "Save as default" makes the current values the start values.
+- Defaults and presets in TOML files (`settings.toml`, `presets/*.toml`);
+  unknown keys are kept, invalid values are reported with file, key and
+  reason. The album folder of `settings.json` (0.2.x) is taken over once.
+- New options: JPEG quality (70 to 95), PNG compression (0 to 9), size
+  tolerance for fitting frames to photo sizes (2 to 10 %).
+- The options table of the user guide is generated from the schema
+  (`tools/settings_table.py`); a test fails if it is outdated.
+- New dependency: `tomli-w` (writing TOML).
 - Update: the pending archives are listed in the order they are applied,
   with the version each was built on; clearer question ("Apply all up to
   X? [Enter = all, or the version to stop at]").

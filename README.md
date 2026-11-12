@@ -4,7 +4,7 @@ Document and photo-album scanning for Linux, built on SANE, Ghostscript and
 CUPS. Graphical interface with Qt 6; runs on GNOME, KDE Plasma, COSMIC and
 other freedesktop desktops, on Wayland and X11.
 
-> **Status: version 0.2.8, testable draft.** Documents, photo albums and
+> **Status: version 0.3.0, testable draft.** Documents, photo albums and
 > printing work. Device profiles, the duplex calibration wizard and album
 > export follow; see the [roadmap](docs/concept/README.md#roadmap).
 
@@ -52,6 +52,7 @@ from the installed driver; the picture shows an example.
 | Progress | the image builds up while scanning; progress bar, page count, elapsed and remaining time in the status bar; cancel |
 | Album | after confirmation each photo is straightened and saved as PNG or JPEG with continuing numbers and an `album.json` index |
 | Printing | every CUPS printer with all driver options, e.g. photo tray, cassette or CD/DVD tray |
+| Settings | every option with a badge of its source (built-in, default, preset, changed) and a reset button; named presets per tab; defaults in a TOML file; a summary line of the effective values; the scanners of the last run are shown at once while the search runs |
 | Updates | each release in its own environment; an open window switches to a new release and hands over the open work (scanner, tab, waiting photo scan, document pages) |
 
 ## Installation

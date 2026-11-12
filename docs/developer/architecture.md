@@ -41,6 +41,7 @@ without a display.
 | Scanner access and documents | [scanning-and-documents.md](scanning-and-documents.md) | `ScanimageBackend`, `DeviceOptions`, `DocumentSession`, `PdfWriter` |
 | Photo album: detection, cropping, frame editor | [photo-album.md](photo-album.md) | `PhotoDetector`, `ImageCropper`, `PhotoSession`, `RegionView`, `frame_edit` |
 | Printing | [printing.md](printing.md) | `CupsClient`, `PrintDialog`, `OptionForm` |
+| Settings and presets | [settings.md](settings.md) | `SettingDefinition`, `SettingsStack`, `SettingsFiles`, `TabSettings` |
 | GUI structure and threads | [gui.md](gui.md) | `Workbench`, `TaskRunner`, `ScanTab`, `MainWindow` |
 
 ## Design patterns in use
@@ -48,6 +49,7 @@ without a display.
 | Pattern | Where |
 |---|---|
 | Adapter | `ScanimageBackend`, `CupsClient`, `GitRepo`, `GitHubCli` wrap command line programs |
+| Chain of Responsibility | `SettingsStack`: built-in, default, preset, session |
 | Strategy | `PhotoDetector` (exchangeable detection with `DetectorTuning`) |
 | Template Method | `ScanTab.run_job`/`refresh`; `PdfWriter.write` (lossless, then optional reduction) |
 | Command | menu actions of `RegionMenus`, page commands of `PageList` |

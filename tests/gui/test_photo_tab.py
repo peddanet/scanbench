@@ -16,7 +16,6 @@ from scanbench.domain.scan_error import ScanError
 from scanbench.domain.scan_progress import ScanProgress
 from scanbench.infrastructure.image_store import ImageStore
 from scanbench.infrastructure.photo_detector import PhotoDetector
-from scanbench.infrastructure.settings_store import SettingsStore
 from scanbench.ui.frame_editor import FrameEditor
 from scanbench.ui.photo_tab import PhotoTab
 from scanbench.ui.progress_panel import ProgressPanel
@@ -41,8 +40,7 @@ def _tab(tmp_path: Path, qtbot: QtBot, answers: Answers) -> PhotoTab:
     """
     scanner = FakeScanner([scan(PAGE)], DPI)
     session = PhotoSession(scanner, PhotoDetector(), ImageStore(), tmp_path)
-    tab = PhotoTab(context(qtbot, scanner, answers), session,
-                   SettingsStore(tmp_path / "settings.json"))
+    tab = PhotoTab(context(qtbot, scanner, answers), session)
     qtbot.addWidget(tab)
     tab.resize(1000, 800)
     return tab
