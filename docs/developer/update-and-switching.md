@@ -47,6 +47,7 @@ workflows are in the [release process](release-process.md).
 | `infrastructure/github_cli.py` | `GitHubCli` | pull requests, CI runs, repository settings through `gh` (Adapter) |
 | `infrastructure/dev_environment.py` | `DevEnvironment` | development venv of the clone, gates |
 | `infrastructure/release_installer.py` | `ReleaseInstaller` | run `install.sh`, read the active release |
+| `ui/update_dialog.py`, `ui/update_progress.py` | `UpdateDialog`, `UpdateProgress` | runs `scanbench update --yes` as child process, shows its output and a progress bar read from the `-- [n]` step lines, the `pending:` line and the gate lines |
 | `infrastructure/archive_finder.py` | `ArchiveFinder` | newest delivery per version, pending and obsolete archives, SHA-256 |
 | `infrastructure/update_lock.py` | `UpdateLock` | exclusive `flock` against parallel updates |
 

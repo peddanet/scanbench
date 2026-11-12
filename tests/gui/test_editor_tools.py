@@ -15,7 +15,7 @@ from scanbench.domain.crop_region import CropRegion
 from scanbench.ui.frame_editor import FrameEditor
 from scanbench.ui.frame_items import RegionItem
 from scanbench.ui.frame_values_dialog import FrameValuesDialog
-from scanbench.ui.guide_items import GuideItem
+from scanbench.ui.guide_items import GuideItem, add_guide
 from scanbench.ui.region_menus import RegionMenus
 from scanbench.ui.region_view import RegionView
 
@@ -250,7 +250,38 @@ def test_live_image(qtbot: QtBot) -> None:
     editor = FrameEditor("hint")
     qtbot.addWidget(editor)
     editor.show_live(np.full((40, 30, 3), 128, dtype=np.uint8))
-    assert editor.view.pixmap_item is not None and editor.details.text() == "Scanning ..."
+    assert editor.view.picture.shown() and editor.details.text() == "Scanning ..."
+    editor.show_scan(None, DPI, [])
+    assert not editor.view.picture.shown()
+
+
+def test_live_image_after_editing_keeps_the_picture_item(tmp_path: Path, qtbot: QtBot) -> None:
+    """Live updates after adding a frame and a guide replace items without deleting them.
+
+    0.2.5 cleared the scene with ``QGraphicsScene.clear()`` and crashed while a
+    selected, newly added frame existed (segmentation fault in ``show_scan``).
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: pytest-qt helper.
+    """
+    editor = editor_with(tmp_path, qtbot, [Placed(150, 100, 105, 70), Placed(150, 220, 105, 70)])
+    view = editor.view
+    centre = item(view, 1).polygon().boundingRect().center()
+    add = next(a.menu() for a in RegionMenus(view).item_menu(1, centre).actions()
+               if a.text() == "Add frame here")
+    assert isinstance(add, QMenu)
+    _trigger(add, "10 x 15 cm")
+    add_guide(view.scene(), True)
+    editor.set_draw_mode(True)
+    mouse(view, QEvent.Type.MouseButtonPress, centre)     # half-drawn frame
+    picture = view.picture
+    for shade in range(0, 250, 10):
+        editor.show_live(np.full((900, 700, 3), shade, dtype=np.uint8))
+    assert view.picture is picture and view.scene().items() == [picture]
+    assert view.selected_index() == -1
+    mouse(view, QEvent.Type.MouseButtonRelease, centre)   # gesture was dropped
+    assert not view.regions
 
 
 def test_previous_and_next_photo(tmp_path: Path, qtbot: QtBot) -> None:

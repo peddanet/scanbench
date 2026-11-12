@@ -4,7 +4,19 @@ All notable changes are documented here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning 2.0.0](https://semver.org/).
 
-## [Unreleased]
+## [0.2.6] - 2026-11-12
+
+### Fixed
+
+- Crash (segmentation fault) while the live image of a scan was shown,
+  observed after adding a frame: the frame editor no longer deletes graphics
+  items that Python still references; it reuses one picture item.
+
+### Added
+
+- Update dialog (scanbench > Update ...): progress bar with step, number of
+  steps, finished quality gates and elapsed time.
+- Concept "Image correction" (`docs/concept/image-correction.md`).
 
 ## [0.2.5] - 2026-11-12
 

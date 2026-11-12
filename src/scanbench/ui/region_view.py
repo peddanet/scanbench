@@ -5,15 +5,14 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import (QBrush, QColor, QContextMenuEvent, QImage, QKeyEvent, QMouseEvent,
-                           QPainter, QPen, QPixmap, QPolygonF, QResizeEvent)
-from PySide6.QtWidgets import (QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsScene,
-                               QGraphicsView)
+from PySide6.QtGui import (QContextMenuEvent, QImage, QKeyEvent, QMouseEvent, QPainter, QPixmap,
+                           QPolygonF, QResizeEvent)
+from PySide6.QtWidgets import QGraphicsScene, QGraphicsView
 
 from scanbench.domain import frame_edit
 from scanbench.domain.crop_region import CropRegion
 from scanbench.domain.frame_handle import FrameHandle
-from scanbench.ui.frame_items import HandleItem, RegionItem
+from scanbench.ui.frame_items import HandleItem, PictureItem, RegionItem, SketchBand
 from scanbench.ui.guide_items import remove_guides
 from scanbench.ui.region_menus import RegionMenus
 
@@ -53,7 +52,7 @@ class Gesture:
     """
 
     drag: Drag | None = None
-    sketch: tuple[QPointF, QGraphicsRectItem] | None = None
+    sketch: tuple[QPointF, SketchBand] | None = None
 
 
 class RegionView(QGraphicsView):
@@ -86,7 +85,10 @@ class RegionView(QGraphicsView):
         self.dpi = 300
         self.scale_factor = 1.0
         self.frame_size = (0, 0)
-        self.pixmap_item: QGraphicsPixmapItem | None = None
+        # One picture item for the whole life of the view: replacing its pixmap
+        # avoids deleting graphics items under Python wrappers (see show_scan).
+        self.picture = PictureItem()
+        self.scene().addItem(self.picture)
         self.mode = ViewMode()
         self._gesture = Gesture()
         # A bound method is disconnected before the scene dies with the view.
@@ -106,24 +108,40 @@ class RegionView(QGraphicsView):
             dpi: Resolution of the scan.
             regions: Regions in scan pixels.
         """
-        self.scene().clear()
-        self.pixmap_item = None
+        self._clear()
         self.regions = list(regions)
         self.dpi = dpi
         if path is None:
+            self.picture.setPixmap(QPixmap())
+            self.scene().setSceneRect(QRectF())
             return
         full = QPixmap.fromImage(path) if isinstance(path, QImage) else QPixmap(str(path))
         self.frame_size = (full.width(), full.height())
         self.scale_factor = min(1.0, MAX_PREVIEW / max(1, full.width(), full.height()))
-        preview = full.scaled(round(full.width() * self.scale_factor),
-                              round(full.height() * self.scale_factor),
-                              Qt.AspectRatioMode.KeepAspectRatio,
-                              Qt.TransformationMode.SmoothTransformation)
-        self.pixmap_item = self.scene().addPixmap(preview)
-        self.scene().setSceneRect(self.pixmap_item.boundingRect())
+        self.picture.setPixmap(full.scaled(round(full.width() * self.scale_factor),
+                                           round(full.height() * self.scale_factor),
+                                           Qt.AspectRatioMode.KeepAspectRatio,
+                                           Qt.TransformationMode.SmoothTransformation))
+        self.scene().setSceneRect(self.picture.boundingRect())
         self.mode.fit = True
         self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
         self._draw(self.regions)
+
+    def _clear(self) -> None:
+        """Remove frames, guides and a half-drawn frame; keep the picture item.
+
+        Not ``QGraphicsScene.clear()``: it deleted items in C++ while Python
+        still held them, and releasing them crashed 0.2.5 (segmentation fault).
+        """
+        self._gesture = Gesture()
+        scene = self.scene()
+        scene.blockSignals(True)
+        scene.clearSelection()
+        for item in scene.items():
+            if item.parentItem() is None and item is not self.picture:
+                scene.removeItem(item)
+        scene.blockSignals(False)
+        self.frame_selected.emit(-1)
 
     def _scene_point(self, x: float, y: float) -> QPointF:
         """Convert scan pixels into scene coordinates.
@@ -226,7 +244,7 @@ class RegionView(QGraphicsView):
         preview[index] = region.clamped(*self.frame_size)
         return preview
 
-    def _finish_sketch(self, band: QGraphicsRectItem) -> None:
+    def _finish_sketch(self, band: SketchBand) -> None:
         """Turn the rubber band into a new, selected frame (if it is big enough).
 
         Args:
@@ -256,13 +274,9 @@ class RegionView(QGraphicsView):
             self._gesture.drag = (item.handle, frame.index, list(self.regions))
             event.accept()
             return
-        if self.mode.draw and left and self.pixmap_item is not None:
+        if self.mode.draw and left and self.picture.shown():
             start = self.mapToScene(event.position().toPoint())
-            band = QGraphicsRectItem(QRectF(start, start))
-            pen = QPen(QColor(255, 140, 0), 2, Qt.PenStyle.DashLine)
-            pen.setCosmetic(True)
-            band.setPen(pen)
-            band.setBrush(QBrush(QColor(255, 140, 0, 40)))
+            band = SketchBand(start)
             self.scene().addItem(band)
             self._gesture.sketch = (start, band)
             event.accept()
@@ -351,7 +365,7 @@ class RegionView(QGraphicsView):
             event: The event.
         """
         super().resizeEvent(event)
-        if self.pixmap_item is not None and self.mode.fit:
+        if self.picture.shown() and self.mode.fit:
             self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
             self._draw(self.regions, self.selected_index())
 

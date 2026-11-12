@@ -72,6 +72,26 @@ Raw scans live in a temporary directory below the cache directory
 (`~/.cache/scanbench/session-*`), not in `/tmp`, which is a RAM file system on
 many distributions; `Workbench.close()` waits for jobs and removes it.
 
+## Graphics items and Python references
+
+The frame editor (`RegionView`) never calls `QGraphicsScene.clear()`. A
+graphics item that Python still references but that Qt deletes (by clearing
+the scene, deleting the parent item or the view) leaves a dangling wrapper
+if it is a plain Qt class: Qt cannot report the deletion, and releasing the
+reference crashes the process (segmentation fault; 0.2.5 crashed this way
+in `show_scan` while the live image was replaced during a scan). Rules:
+
+- An item Python keeps a reference to is a **Python subclass**
+  (`PictureItem`, `RegionItem`, `HandleItem`, `NumberBadge`, `SketchBand`,
+  `GuideItem`); Qt then reports its deletion to the wrapper.
+- Plain Qt items (text of a badge, top mark) are created as children and
+  never stored.
+- Items leave the scene with `removeItem`, which hands them back to Python;
+  Python deletes them when the last reference is gone. `RegionView._clear`
+  does this with blocked scene signals and keeps the one `PictureItem` of
+  the view, whose pixmap is replaced (an empty pixmap means "no scan";
+  `PictureItem.shown()`).
+
 ## Logging
 
 `GuiApplication.run` starts `AppLog` before the window and stops it after
