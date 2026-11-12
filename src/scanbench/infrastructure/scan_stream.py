@@ -165,14 +165,16 @@ class ScanStream:
                 last = time.monotonic()
                 self._report(observer, parser, started, 1)
                 if observer.image is not None and image.rows():
-                    observer.image(image.image())
+                    observer.image(image.preview())
         self._finish(process, errors)
         if process.returncode != 0 or image.height == 0 or image.rows() < image.height:
             raise ScanError(f"scanning failed: {parser.failure()}")
         parser.percent = 100.0
         self._report(observer, parser, started, 1)
         mode = {"P4": "1", "P5": "L", "P6": "RGB"}[image.kind]
-        picture = Image.fromarray(image.image()).convert(mode)
+        picture = Image.fromarray(image.image())
+        if mode != "RGB":
+            picture = picture.convert(mode)
         picture.save(target, format="PNG", dpi=(dpi, dpi))
         return target
 
