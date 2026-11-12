@@ -4,6 +4,15 @@ All notable changes are documented here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning 2.0.0](https://semver.org/).
 
+## [0.2.7] - 2026-11-12
+
+### Added
+
+- Scanner selection without waiting: the scanners and options of the last
+  run are shown at once (cache `devices.json` in the cache directory); the
+  search runs in the background; a scanner chosen before the search has
+  finished is checked by reading its options.
+
 ## [0.2.6] - 2026-11-12
 
 ### Fixed
