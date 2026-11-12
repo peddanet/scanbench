@@ -9,8 +9,10 @@ from PIL import Image
 from fakes import FakeShell
 from scanbench.domain.device_info import DeviceInfo
 from scanbench.domain.device_options import DeviceOptions
+from scanbench.domain.scan_progress import ScanProgress
 from scanbench.domain.scan_settings import ScanSettings
 from scanbench.domain.scan_source import ScanSource
+from scanbench.infrastructure.scan_observer import ScanObserver
 from scanbench.infrastructure.scanimage_backend import ScanimageBackend
 
 OPTIONS = DeviceOptions(("Flatbed", "Automatic Document Feeder", "ADF Duplex"),
@@ -90,15 +92,18 @@ class FakeScanner(ScanimageBackend):
         return OPTIONS
 
     def scan(self, device: str, settings: ScanSettings, options: DeviceOptions,
-             directory: Path, stem: str) -> list[Path]:
+             prefix: Path, observer: ScanObserver | None = None) -> list[Path]:
         """Write prepared images as scanned pages.
+
+        A scan area cuts the image; a lower resolution than ``dpi`` scales it
+        down, as a real scanner would deliver it.
 
         Args:
             device: Ignored.
             settings: Recorded.
             options: Ignored.
-            directory: Target directory.
-            stem: File name prefix.
+            prefix: Path prefix of the pages.
+            observer: Receives one progress report and the image.
 
         Returns:
             The written pages.
@@ -108,5 +113,35 @@ class FakeScanner(ScanimageBackend):
         result = []
         for number in range(1, count + 1):
             image = self.images.pop(0) if len(self.images) > 1 else self.images[0]
-            result.append(write_png(directory / f"{stem}-{number:03d}.png", image, self.dpi))
+            image, dpi = self._deliver(image, settings)
+            if observer is not None:
+                if observer.progress is not None:
+                    observer.progress(ScanProgress(number, 1, 100.0, 0.1))
+                if observer.image is not None:
+                    observer.image(image)
+            result.append(write_png(prefix.parent / f"{prefix.name}-{number:03d}.png", image, dpi))
         return result
+
+    def _deliver(self, image: NDArray[np.uint8],
+                 settings: ScanSettings) -> tuple[NDArray[np.uint8], int]:
+        """Apply area and resolution of the request to a prepared image.
+
+        Args:
+            image: Prepared image at ``dpi``.
+            settings: Requested settings.
+
+        Returns:
+            Delivered image and its resolution.
+        """
+        dpi = min(self.dpi, settings.resolution) if settings.resolution < self.dpi \
+            else self.dpi
+        if settings.area is not None:
+            mm = self.dpi / 25.4
+            area = settings.area
+            image = image[round(area.top * mm):round((area.top + area.height) * mm),
+                          round(area.left * mm):round((area.left + area.width) * mm)]
+        if dpi != self.dpi:
+            height, width = image.shape[:2]
+            size = (max(1, round(width * dpi / self.dpi)), max(1, round(height * dpi / self.dpi)))
+            image = np.asarray(Image.fromarray(image).resize(size), dtype=np.uint8)
+        return image, dpi

@@ -1,10 +1,13 @@
 """Page thumbnails with a large preview and page commands."""
 
+import numpy as np
+from numpy.typing import NDArray
 from PySide6.QtCore import QPoint, QSize, Qt, Signal
 from PySide6.QtGui import QIcon, QPixmap, QTransform
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMenu, QWidget
 
 from scanbench.application.document_session import DocumentSession, Page
+from scanbench.ui.qt_images import to_qimage
 
 THUMB = 160
 """Edge length of the page thumbnails in pixels."""
@@ -101,6 +104,17 @@ class PageList(QWidget):
             self.preview.clear()
             self.preview.setText(EMPTY_TEXT)
         self.changed.emit()
+
+    def show_live(self, pixels: NDArray[np.uint8]) -> None:
+        """Show the page being scanned in the large preview.
+
+        Args:
+            pixels: The page so far.
+        """
+        size = max(200, min(self.preview.width(), self.preview.height()))
+        self.preview.setPixmap(QPixmap.fromImage(to_qimage(pixels)).scaled(
+            size, size, Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation))
 
     def rotate(self, steps: int) -> None:
         """Turn the selected page.

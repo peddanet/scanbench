@@ -63,21 +63,28 @@ class CropRegion:
         return replace(self, width=short_side, height=long_side)
 
     def snapped(self, presets: Iterable[PaperFormat], dpi: int,
-                tolerance: float = 0.06) -> "CropRegion":
+                tolerance: float = 0.06, max_grow_mm: float = 1.0) -> "CropRegion":
         """Return the region fitted to the first preset it nearly matches.
+
+        A frame is never made more than ``max_grow_mm`` larger per side: a
+        bigger frame would show a strip of the lid (a white edge) around the
+        photo. Prints often differ from the nominal size by a few millimetres.
 
         Args:
             presets: Candidate formats.
             dpi: Resolution of the scan.
             tolerance: Allowed relative deviation per side.
+            max_grow_mm: Largest growth per side (half of the size difference).
 
         Returns:
             The fitted region, or this region if no preset matches.
         """
         size = sorted((self.width, self.height), reverse=True)
+        grow = 2 * max_grow_mm / 25.4 * dpi
         for paper in presets:
             wanted = sorted(paper.pixels(dpi), reverse=True)
-            if all(abs(have - want) <= tolerance * want for have, want in zip(size, wanted)):
+            if all(abs(have - want) <= tolerance * want and want - have <= grow
+                   for have, want in zip(size, wanted)):
                 return self.fitted(paper, dpi)
         return self
 

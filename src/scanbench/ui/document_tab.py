@@ -3,6 +3,8 @@
 import tempfile
 from pathlib import Path
 
+import numpy as np
+from numpy.typing import NDArray
 from PySide6.QtWidgets import QComboBox, QFormLayout, QHBoxLayout, QPushButton, QVBoxLayout
 
 from scanbench.application.document_session import DocumentSession, Page
@@ -102,8 +104,17 @@ class DocumentTab(ScanTab):
             return
         device, options = selected
         settings = self.panel.settings()
-        self.run_job(f"Scanning ({settings.source.value}, {settings.mode.value}) ...",
-                     lambda: self._session.scan(device, settings, options), self._scanned)
+        self.run_scan(f"Scanning ({settings.source.value}, {settings.mode.value}) ...",
+                      lambda observer: self._session.scan(device, settings, options, observer),
+                      self._scanned)
+
+    def show_partial(self, pixels: NDArray[np.uint8]) -> None:
+        """Show the page while it is being scanned.
+
+        Args:
+            pixels: The page so far.
+        """
+        self.pages.show_live(pixels)
 
     def _scanned(self, added: list[Page]) -> None:
         """Show new pages.
@@ -113,6 +124,23 @@ class DocumentTab(ScanTab):
         """
         self.pages.redraw(len(self._session.pages) - 1)
         self.finish(f"{len(added)} page(s) scanned; {len(self._session.pages)} in total")
+
+    def scanned_pages(self) -> list[Page]:
+        """Return the pages of the document being scanned.
+
+        Returns:
+            The pages in order.
+        """
+        return list(self._session.pages)
+
+    def resume(self, pages: list[Page]) -> None:
+        """Show pages taken over from the previous release.
+
+        Args:
+            pages: The pages in order.
+        """
+        self._session.pages = list(pages)
+        self.pages.redraw(len(pages) - 1)
 
     def merge(self) -> None:
         """Merge the last two scan runs as fronts and backs."""

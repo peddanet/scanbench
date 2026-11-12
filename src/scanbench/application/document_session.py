@@ -11,6 +11,7 @@ from scanbench.domain.scan_error import ScanError
 from scanbench.domain.scan_settings import ScanSettings
 from scanbench.infrastructure.image_store import ImageStore
 from scanbench.infrastructure.pdf_writer import PdfWriter
+from scanbench.infrastructure.scan_observer import ScanObserver
 from scanbench.infrastructure.scanimage_backend import ScanimageBackend
 
 
@@ -57,20 +58,22 @@ class DocumentSession:
         self._runs = 0
         self.pages: list[Page] = []
 
-    def scan(self, device: str, settings: ScanSettings, options: DeviceOptions) -> list[Page]:
+    def scan(self, device: str, settings: ScanSettings, options: DeviceOptions,
+             observer: ScanObserver | None = None) -> list[Page]:
         """Scan one flatbed page or the whole feeder and append the pages.
 
         Args:
             device: SANE device name.
             settings: Wanted settings.
             options: What the device offers.
+            observer: Receiver of progress and the partial image.
 
         Returns:
             The new pages.
         """
         self._runs += 1
-        paths = self._scanner.scan(device, settings, options, self._work_dir,
-                                   f"scan{self._runs:03d}")
+        prefix = self._work_dir / f"scan{self._runs:03d}"
+        paths = self._scanner.scan(device, settings, options, prefix, observer)
         added = [Page(p, self._store.resolution(p, settings.resolution), 0, self._runs)
                  for p in paths]
         self.pages.extend(added)
