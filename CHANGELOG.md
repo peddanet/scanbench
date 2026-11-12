@@ -11,7 +11,14 @@ All notable changes are documented here. The format follows
 - Print dialog: readable names instead of driver keywords (paper sizes with
   dimensions, trays, duplex, colour); photo sizes marked "Photo ..." and
   listed after a separator; the keyword is the tooltip. A hint says when
-  the driver offers no CD/DVD tray.
+  the driver offers no CD/DVD tray. Checked against the driverless queue of
+  a PIXMA MX925: upper/lower cassette, Canon media names such as "Photo
+  Paper Plus Glossy II", sizes in mm (`200x148mm`), JIS B5.
+
+### Fixed
+
+- Print dialog: templates such as `Custom.WIDTHxHEIGHT` are no longer offered;
+  chosen, they were sent literally and the job failed.
 
 ## [0.2.3] - 2026-11-12
 

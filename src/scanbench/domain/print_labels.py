@@ -21,13 +21,15 @@ PHOTO_SIZES = (
 
 KNOWN_SIZES = {
     "a3": (297.0, 420.0), "a4": (210.0, 297.0), "a5": (148.0, 210.0), "a6": (105.0, 148.0),
-    "b5": (176.0, 250.0), "letter": (215.9, 279.4), "legal": (215.9, 355.6),
+    "b5": (182.0, 257.0), "isob5": (176.0, 250.0), "letter": (215.9, 279.4),
+    "legal": (215.9, 355.6), "doublepostcardrotated": (148.0, 200.0),
     "hagaki": (100.0, 148.0), "postcard": (100.0, 148.0), "l": (89.0, 127.0),
     "photol": (89.0, 127.0), "2l": (127.0, 177.8), "photo2l": (127.0, 177.8),
     "kg": (101.6, 152.4), "envdl": (110.0, 220.0), "env10": (104.8, 241.3),
     "envc5": (162.0, 229.0),
 }
-"""Size keywords of PPD files (compared in lower case without "Photo"/"Card")."""
+"""Size keywords of PPD files (compared in lower case without "Photo"/"Card");
+``B5`` is JIS B5 and ``ISOB5`` is ISO B5, as in the CUPS media table."""
 
 SLOTS = {
     "auto": "Automatic", "main": "Main tray", "cassette": "Cassette (front)",
@@ -36,10 +38,15 @@ SLOTS = {
     "photo": "Photo tray", "phototray": "Photo tray", "disc": "CD/DVD tray",
     "cd": "CD/DVD tray", "cdtray": "CD/DVD tray", "cddvd": "CD/DVD tray",
     "cddvdtray": "CD/DVD tray",
-    "disctray": "CD/DVD tray", "alternate": "Alternate tray", "top": "Top tray",
-    "bottom": "Bottom tray", "middle": "Middle tray",
+    "disctray": "CD/DVD tray", "alternate": "Alternate tray",
+    "top": "Upper cassette (top)", "bottom": "Lower cassette (bottom)",
+    "middle": "Middle tray",
 }
 """Paper source keywords (lower case, without separators)."""
+
+MEDIA = {"stationery": "Plain paper", "photographic": "Photo paper (generic)",
+         "envelope": "Envelope"}
+"""Media type keywords of driverless queues (lower case)."""
 
 WORDS = {
     ("Duplex", "None"): "Off (one-sided)",
@@ -53,7 +60,7 @@ WORDS = {
 
 _SELF_DESCRIBING = re.compile(r"^[a-z]+_[^_]+_(?P<w>[\d.]+)x(?P<h>[\d.]+)(?P<unit>in|mm)$")
 _POINTS = re.compile(r"^w(?P<w>[\d.]+)h(?P<h>[\d.]+)$")
-_INCHES = re.compile(r"^(?:photo|card|index)?(?P<w>[\d.]+)x(?P<h>[\d.]+)$")
+_INCHES = re.compile(r"^(?:photo|card|index)?(?P<w>[\d.]+)x(?P<h>[\d.]+)(?P<mm>mm)?$")
 _BORDERLESS = ("borderless", "fb", "bl")
 
 
@@ -101,7 +108,8 @@ def size_mm(keyword: str) -> tuple[float, float] | None:
     elif match := _POINTS.match(base):
         size = (float(match["w"]) * 25.4 / 72, float(match["h"]) * 25.4 / 72)
     elif match := _INCHES.match(_key(base)):
-        size = (float(match["w"]) * 25.4, float(match["h"]) * 25.4)
+        factor = 1.0 if match["mm"] else 25.4
+        size = (float(match["w"]) * factor, float(match["h"]) * factor)
     else:
         size = KNOWN_SIZES.get(_key(base)) or KNOWN_SIZES.get(
             re.sub(r"^(photo|card)", "", _key(base)))
@@ -161,6 +169,13 @@ def size_label(keyword: str) -> tuple[str, bool]:
         name = "Custom" if kind == "custom" else name
     elif _POINTS.match(name):
         name = "Custom"
+    elif match := _INCHES.match(name.lower()):
+        unit = "mm" if match["mm"] else "in"
+        plain = f"{match['w']} x {match['h']} {unit}"
+        return (plain if unit == "mm" else
+                f"{plain} ({size[0]:.0f} x {size[1]:.0f} mm)") + suffix, False
+    elif re.search(r"[a-z][A-Z]", name):
+        name = spaced(name)
     return f"{name} ({size[0]:.0f} x {size[1]:.0f} mm){suffix}", False
 
 
@@ -180,7 +195,43 @@ def choice_label(option: str, keyword: str) -> str:
         return size_label(keyword)[0]
     if option == "InputSlot":
         return SLOTS.get(_key(keyword).replace(".", ""), spaced(keyword))
+    if option == "MediaType":
+        return media_label(keyword)
     return spaced(keyword)
+
+
+def media_label(keyword: str) -> str:
+    """Return the label of a media type.
+
+    Driverless queues name vendor media ``CustomMediaTypePhotoPaperPlusGlossyIi``;
+    the prefix is removed and the product name keeps its capitals.
+
+    Args:
+        keyword: Media type keyword.
+
+    Returns:
+        E.g. ``Photo Paper Plus Glossy II``.
+    """
+    if keyword.lower() in MEDIA:
+        return MEDIA[keyword.lower()]
+    if keyword.startswith("CustomMediaType") and len(keyword) > len("CustomMediaType"):
+        words = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", keyword[len("CustomMediaType"):])
+        return re.sub(r"\bIi\b", "II", words)
+    return spaced(keyword)
+
+
+def is_placeholder(keyword: str) -> bool:
+    """Whether a choice is a template such as ``Custom.WIDTHxHEIGHT``.
+
+    Such a choice cannot be sent as it is; the dialog does not offer it.
+
+    Args:
+        keyword: Choice keyword.
+
+    Returns:
+        True for a template.
+    """
+    return keyword.startswith("Custom.")
 
 
 def is_disc_slot(keyword: str) -> bool:

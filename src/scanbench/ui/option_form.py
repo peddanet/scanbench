@@ -3,7 +3,8 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QFormLayout, QLabel, QWidget
 
-from scanbench.domain.print_labels import choice_label, is_disc_slot, size_label
+from scanbench.domain.print_labels import (choice_label, is_disc_slot, is_placeholder,
+                                           size_label)
 from scanbench.domain.printer_option import PrinterOption
 
 SIZE_OPTIONS = ("PageSize", "PageRegion")
@@ -25,7 +26,7 @@ def fill_choices(combo: QComboBox, option: PrinterOption) -> None:
         combo: Empty combo box.
         option: The driver option.
     """
-    choices = list(option.choices)
+    choices = [c for c in option.choices if not is_placeholder(c)]
     if option.key in SIZE_OPTIONS:
         photos = [c for c in choices if size_label(c)[1]]
         others = [c for c in choices if c not in photos]
