@@ -55,7 +55,6 @@ class MainWindow(QMainWindow):
             header: Widget above the tabs (scanner selection).
         """
         super().__init__()
-        self.setWindowTitle("scanbench")
         self.resize(960, 640)
         self._confirm = confirm
         self._busy = 0
@@ -78,7 +77,11 @@ class MainWindow(QMainWindow):
         menu.addAction("&Update ...").triggered.connect(self.update_requested)
         menu.addAction("&About scanbench").triggered.connect(self.show_about)
         menu.addAction("&Quit").triggered.connect(self.close)
-        self.statusBar().showMessage(f"scanbench {version_text}")
+        self.setWindowTitle(f"scanbench {version_text}")
+        # stays visible on the right; status texts appear on the left
+        self.version_label = QLabel(f"scanbench {version_text}")
+        self.version_label.setToolTip("Version of this window")
+        self.statusBar().addPermanentWidget(self.version_label)
 
     @staticmethod
     def _placeholder(text: str) -> QWidget:

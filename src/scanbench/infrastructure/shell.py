@@ -101,6 +101,24 @@ class Shell:
         raise UpdateError(f"'{' '.join(argv)}' failed {attempts} times: "
                           f"{result.stderr.strip()[:200]}")
 
+    def start(self, *argv: str) -> "subprocess.Popen[bytes]":
+        """Start a command whose output is read while it runs.
+
+        Args:
+            *argv: Program and arguments.
+
+        Returns:
+            The running process with binary pipes for standard and error output.
+
+        Raises:
+            UpdateError: If the program is missing or cannot start.
+        """
+        try:
+            return subprocess.Popen(self._argv(argv), cwd=self.cwd, env=self._env,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError as exc:
+            raise UpdateError(f"'{argv[0]}' could not start in {self.cwd}: {exc}") from exc
+
     def live(self, *argv: str) -> int:
         """Run a command whose output goes straight to our standard output.
 

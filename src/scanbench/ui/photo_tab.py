@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import numpy as np
+from numpy.typing import NDArray
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
 from scanbench.application.photo_session import PhotoScan, PhotoSession
@@ -12,7 +14,8 @@ from scanbench.ui.frame_editor import FrameEditor
 from scanbench.ui.scan_tab import ScanTab
 from scanbench.ui.tab_context import TabContext
 
-START_TEXT = "Put photos on the glass with a little space between them."
+START_TEXT = ("Put photos on the glass. 'Preview scan' finds them quickly; 'Scan photos' then "
+              "scans only their area at full resolution. Or scan the whole page directly.")
 """Hint shown while no scan waits for confirmation."""
 
 
@@ -40,8 +43,13 @@ class PhotoTab(ScanTab):
         self.form = PhotoForm(settings, context.dialogs.choose_folder)
         self.editor = FrameEditor(START_TEXT)
         self.buttons.update({key: QPushButton(text) for key, text in (
-            ("scan", "Scan page"), ("confirm", "Confirm photos"), ("discard", "Discard scan"),
+            ("preview", "Preview scan"), ("area", "Scan photos"), ("scan", "Scan whole page"),
+            ("confirm", "Confirm photos"), ("discard", "Discard scan"),
             ("detect", "Detect again"), ("print", "Print saved photos ..."))})
+        self.buttons["preview"].setToolTip(
+            "Quick scan of the whole glass at the lowest resolution to find the photos")
+        self.buttons["area"].setToolTip(
+            "Scan only the area around the frames of the preview, at the chosen resolution")
         controls = QVBoxLayout()
         controls.addWidget(self.form)
         for button in self.buttons.values():
@@ -53,7 +61,8 @@ class PhotoTab(ScanTab):
         layout = QHBoxLayout(self)
         layout.addWidget(side)
         layout.addWidget(self.editor, 1)
-        for key, action in (("scan", self.scan), ("confirm", self.confirm),
+        for key, action in (("preview", self._preview), ("area", self._scan_area),
+                            ("scan", self.scan), ("confirm", self.confirm),
                             ("discard", self.discard), ("detect", self.detect_again),
                             ("print", self.print_photos)):
             self.buttons[key].clicked.connect(action)
@@ -61,13 +70,22 @@ class PhotoTab(ScanTab):
         context.devices.options_changed.connect(self.update_options)
         self.update_options()
 
-    def waiting(self) -> bool:
-        """Whether a scan waits for confirmation.
+    def pending(self) -> PhotoScan | None:
+        """Return the scan waiting for confirmation.
 
         Returns:
-            True between scan and confirm or discard.
+            The scan, or None.
         """
-        return self._session.current is not None
+        return self._session.current
+
+    def resume(self, scan: PhotoScan) -> None:
+        """Show a scan taken over from the previous release, waiting for confirmation.
+
+        Args:
+            scan: The scan with its frames.
+        """
+        self._session.current = scan
+        self._detected(scan)
 
     def update_options(self) -> None:
         """Adapt the settings to the selected device."""
@@ -77,11 +95,17 @@ class PhotoTab(ScanTab):
     def refresh(self) -> None:
         """Enable the commands that fit the current state."""
         busy = self._ctx.runner.busy()
-        waiting = self.waiting()
-        self.buttons["scan"].setEnabled(not busy and not waiting and self.form.panel.ready()
-                                        and self._ctx.devices.device() is not None)
-        for key in ("confirm", "discard", "detect"):
-            self.buttons[key].setEnabled(not busy and waiting)
+        current = self._session.current
+        can_scan = (not busy and self.form.panel.ready()
+                    and self._ctx.devices.device() is not None)
+        is_preview = current is not None and current.preview
+        for key in ("preview", "scan"):
+            self.buttons[key].setEnabled(can_scan and (current is None or is_preview))
+        has_frames = current is not None and bool(current.regions)
+        self.buttons["area"].setEnabled(can_scan and is_preview and has_frames)
+        self.buttons["confirm"].setEnabled(not busy and current is not None and not is_preview)
+        for key in ("discard", "detect"):
+            self.buttons[key].setEnabled(not busy and current is not None)
         self.buttons["print"].setEnabled(not busy and bool(self.saved))
 
     def scan(self) -> None:
@@ -92,9 +116,42 @@ class PhotoTab(ScanTab):
         device, options = selected
         settings = self.form.panel.settings()
         snap = self.form.snap.isChecked()
-        self.run_job(f"Scanning the full A4 frame at {settings.resolution} dpi ...",
-                     lambda: self._session.scan(device, settings, options, snap),
-                     self._detected)
+        self.run_scan(f"Scanning the full A4 frame at {settings.resolution} dpi ...",
+                      lambda observer: self._session.scan(device, settings, options, snap,
+                                                          observer),
+                      self._detected)
+
+    def _preview(self) -> None:
+        """Scan the whole glass quickly to locate the photos."""
+        selected = self.selected_device()
+        if selected is None:
+            return
+        device, options = selected
+        settings, snap = self.form.panel.settings(), self.form.snap.isChecked()
+        self.run_scan("Preview scan of the whole glass ...",
+                      lambda observer: self._session.preview(device, settings, options, snap,
+                                                             observer),
+                      self._detected)
+
+    def _scan_area(self) -> None:
+        """Scan only the area around the frames at the chosen resolution."""
+        selected = self.selected_device()
+        if selected is None:
+            return
+        device, options = selected
+        settings = self.form.panel.settings()
+        self.run_scan(f"Scanning the photos at {settings.resolution} dpi ...",
+                      lambda observer: self._session.scan_area(device, settings, options,
+                                                               observer),
+                      self._detected)
+
+    def show_partial(self, pixels: NDArray[np.uint8]) -> None:
+        """Show the glass while it is being scanned.
+
+        Args:
+            pixels: The scan so far.
+        """
+        self.editor.show_live(pixels)
 
     def detect_again(self) -> None:
         """Run the detection again, e.g. after changing the size fitting."""
@@ -114,6 +171,13 @@ class PhotoTab(ScanTab):
         """
         self.editor.show_scan(scan.path, scan.dpi, scan.regions)
         self.buttons["confirm"].setText(f"Confirm {len(scan.regions)} photo(s)")
+        if scan.preview:
+            self.editor.hint.setText(
+                f"Preview at {scan.dpi} dpi: {len(scan.regions)} photo(s) found. Correct, "
+                "draw or delete frames, then 'Scan photos' scans only the area around them "
+                "at the chosen resolution; the frames are kept.")
+            self.finish(f"Preview: {len(scan.regions)} photo(s) found")
+            return
         self.editor.hint.setText(
             f"{len(scan.regions)} photo(s) found. Check the frames: click one to see its "
             "values; drag it to move, drag its grips to resize, the orange grip to rotate "
@@ -130,6 +194,7 @@ class PhotoTab(ScanTab):
         if self._session.current is not None:
             self._session.current.regions = list(regions)
             self.buttons["confirm"].setText(f"Confirm {len(regions)} photo(s)")
+            self.refresh()
 
     def confirm(self) -> None:
         """Cut, deskew and save the confirmed photos."""

@@ -4,7 +4,7 @@ Document and photo-album scanning for Linux, built on SANE, Ghostscript and
 CUPS. Graphical interface with Qt 6; runs on GNOME, KDE Plasma, COSMIC and
 other freedesktop desktops, on Wayland and X11.
 
-> **Status: version 0.2.2, testable draft.** Documents, photo albums and
+> **Status: version 0.2.3, testable draft.** Documents, photo albums and
 > printing work. Device profiles, the duplex calibration wizard and album
 > export follow; see the [roadmap](docs/concept/README.md#roadmap).
 
@@ -47,11 +47,12 @@ from the installed driver; the picture shows an example.
 | Scanners | every scanner SANE reaches, USB or network (eSCL/WSD through sane-airscan); target device of the first tests: Canon PIXMA MX925 |
 | Documents | flatbed or feeder, one or both sides, manual duplex for one-sided feeders; colour, grey, black and white; resolutions as offered by the device; A4, A5, A6, Letter; turn, reorder, delete pages |
 | PDF | lossless (img2pdf) or reduced with Ghostscript: screen, e-book, printer, prepress; always from the lossless original |
-| Photo albums | scan the full A4 glass once; every photo or postcard is found, also with grey or white borders or turned by 90 degrees; frames snap to 9 x 13, 10 x 15, postcard, 13 x 18 cm |
-| Frame editor | click a frame to see size, skew and orientation; drag to move; grips to resize; orange grip to rotate freely (Shift: 0.5° steps); arrow keys and +/-; right-click to turn by 90°, straighten, fit, delete, add |
+| Photo albums | fast preview scan of the whole glass, then only the area around the photos at full resolution; every photo or postcard is found, also with grey or white borders, turned by 90 degrees or lying edge to edge; frame sides are placed on the photo edges at full resolution; frames snap to 9 x 13, 10 x 15, postcard, 13 x 18 cm |
+| Frame editor | numbered frames; per frame: size, skew, turn, exact values; drag, grips, orange rotate grip, arrow keys in screen-pixel steps; draw new frames, merge split ones; zoom up to 16 x, guide lines, undo/redo, previous/next photo |
+| Progress | the image builds up while scanning; progress bar, page count, elapsed and remaining time in the status bar; cancel |
 | Album | after confirmation each photo is straightened and saved as PNG or JPEG with continuing numbers and an `album.json` index |
 | Printing | every CUPS printer with all driver options, e.g. photo tray, cassette or CD/DVD tray |
-| Updates | each release in its own environment; an open window switches to a new release when no work is pending |
+| Updates | each release in its own environment; an open window switches to a new release and hands over the open work (scanner, tab, waiting photo scan, document pages) |
 
 ## Installation
 
@@ -81,8 +82,9 @@ terminal, then:
 1. Select the scanner in the bar at the top (**Search scanners** searches again).
 2. **Documents:** choose source, colour, resolution, paper; **Scan**; arrange
    the pages; choose the PDF size; **Save PDF ...** or **Print ...**.
-3. **Photo album:** put up to four photos on the glass; **Scan page**; check
-   and correct the frames; **Confirm**; next page.
+3. **Photo album:** put up to four photos on the glass; **Preview scan**;
+   check and correct the frames; **Scan photos** (only their area, at full
+   resolution); **Confirm**; next page.
 
 Useful commands (normal user):
 

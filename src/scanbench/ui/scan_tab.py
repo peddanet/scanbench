@@ -3,10 +3,14 @@
 from collections.abc import Callable
 from typing import Any
 
+import numpy as np
+from numpy.typing import NDArray
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QPushButton, QWidget
 
 from scanbench.domain.device_options import DeviceOptions
+from scanbench.domain.scan_progress import ScanProgress
+from scanbench.infrastructure.scan_observer import ScanObserver
 from scanbench.ui.tab_context import TabContext
 
 
@@ -54,7 +58,53 @@ class ScanTab(QWidget):
         self.message.emit(text)
         for button in self.buttons.values():
             button.setEnabled(False)
+        self._ctx.progress.start(text, cancellable=False)
         self._ctx.runner.run(work, done, lambda error: self.finish(f"Error: {error}"))
+
+    def run_scan(self, text: str, scan: Callable[[ScanObserver], Any],
+                 done: Callable[[Any], None]) -> None:
+        """Run a scan with live progress, partial image and cancel button.
+
+        Args:
+            text: Status text while the scan runs.
+            scan: Function doing the scan with the given observer.
+            done: Called with the result in the GUI thread.
+        """
+        self.message.emit(text)
+        for button in self.buttons.values():
+            button.setEnabled(False)
+        cancel = self._ctx.progress.start(text)
+
+        def work(report: Callable[[object], None]) -> Any:
+            """Scan and forward progress and image to the GUI thread.
+
+            Args:
+                report: Sends one item to the GUI thread.
+
+            Returns:
+                The scan result.
+            """
+            return scan(ScanObserver(progress=report, image=report, cancel=cancel))
+        self._ctx.runner.run(work, done, lambda error: self.finish(f"Error: {error}"),
+                             self._show_progress)
+
+    def _show_progress(self, item: object) -> None:
+        """Show a progress report or a partial image.
+
+        Args:
+            item: ``ScanProgress`` or an RGB array of the page so far.
+        """
+        if isinstance(item, ScanProgress):
+            self._ctx.progress.update_progress(item)
+        elif isinstance(item, np.ndarray):
+            self.show_partial(item)
+
+    def show_partial(self, pixels: NDArray[np.uint8]) -> None:
+        """Show the page while it is being scanned (subclass hook).
+
+        Args:
+            pixels: The page so far.
+        """
 
     def finish(self, text: str) -> None:
         """Show the outcome of a job and unlock the commands.
@@ -62,5 +112,6 @@ class ScanTab(QWidget):
         Args:
             text: Status text.
         """
+        self._ctx.progress.finish()
         self.message.emit(text)
         self.refresh()

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from scanbench.application.document_session import DocumentSession
 from scanbench.application.photo_session import PhotoSession
+from scanbench.application.session_handover import Handover
 from scanbench.infrastructure.app_paths import AppPaths
 from scanbench.infrastructure.cups_client import CupsClient
 from scanbench.infrastructure.image_store import ImageStore
@@ -19,6 +20,7 @@ from scanbench.ui.device_bar import DeviceBar
 from scanbench.ui.dialogs import Dialogs, print_asker
 from scanbench.ui.document_tab import DocumentTab
 from scanbench.ui.photo_tab import PhotoTab
+from scanbench.ui.progress_panel import ProgressPanel
 from scanbench.ui.tab_context import TabContext
 from scanbench.ui.task_runner import TaskRunner
 
@@ -35,6 +37,7 @@ class Workbench:
         devices: Scanner selection.
         documents: Documents tab.
         photos: Photo-album tab.
+        progress: Progress display for the status bar.
         work: Temporary directory with the raw scans of this session.
     """
 
@@ -42,15 +45,32 @@ class Workbench:
     devices: DeviceBar
     documents: DocumentTab
     photos: PhotoTab
+    progress: ProgressPanel
     work: tempfile.TemporaryDirectory[str]
 
-    def unsaved(self) -> bool:
-        """Whether a restart would lose work.
+    def handover(self, tab: int) -> Handover:
+        """Collect the open work for the next release.
+
+        Args:
+            tab: Index of the open tab.
 
         Returns:
-            True for an unconfirmed photo scan or an unsaved document.
+            Device, tab, waiting photo scan and document pages.
         """
-        return self.photos.waiting() or self.documents.pages.dirty
+        return Handover(self.devices.device(), tab, self.photos.pending(),
+                        self.documents.scanned_pages())
+
+    def restore(self, handover: Handover) -> None:
+        """Continue with the work of the previous release.
+
+        Args:
+            handover: State written before the switch.
+        """
+        self.devices.preferred = handover.device
+        if handover.photo is not None:
+            self.photos.resume(handover.photo)
+        if handover.pages:
+            self.documents.resume(handover.pages)
 
     def close(self) -> None:
         """Wait for running jobs and delete the raw scans."""
@@ -81,10 +101,11 @@ def build_workbench(paths: AppPaths, include_test: bool | None = None) -> Workbe
     if include_test is None:
         include_test = os.environ.get(TEST_DEVICE_VARIABLE) == "1"
     devices = DeviceBar(scanner, runner, include_test)
-    context = TabContext(devices, runner, cups, Dialogs(print_asker(cups)))
+    progress = ProgressPanel()
+    context = TabContext(devices, runner, cups, Dialogs(print_asker(cups)), progress)
     documents = DocumentTab(
         context, DocumentSession(scanner, store, PdfWriter(shell), work_dir / "documents"))
     photos = PhotoTab(
         context, PhotoSession(scanner, PhotoDetector(), store, work_dir / "photos"),
         SettingsStore(paths.config_dir / "settings.json"))
-    return Workbench(runner, devices, documents, photos, work)
+    return Workbench(runner, devices, documents, photos, progress, work)
