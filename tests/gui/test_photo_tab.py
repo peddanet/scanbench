@@ -58,6 +58,17 @@ def _run(qtbot: QtBot, tab: PhotoTab, button: str) -> None:
     idle(qtbot, tab._ctx.runner)  # pylint: disable=protected-access
 
 
+def _scan(qtbot: QtBot, tab: PhotoTab) -> None:
+    """Make a preview scan, then scan the photos.
+
+    Args:
+        qtbot: pytest-qt helper.
+        tab: The tab.
+    """
+    _run(qtbot, tab, "preview")
+    _run(qtbot, tab, "area")
+
+
 def _edit_frames(view: RegionView) -> None:
     """Use every frame command of the context menus.
 
@@ -92,7 +103,7 @@ def test_scan_edit_and_confirm(tmp_path: Path, qtbot: QtBot) -> None:
     tab.form.browse()
     assert tab.form.album.text() == str(album)
     assert tab.form.panel.resolution.currentData() == 600
-    _run(qtbot, tab, "scan")
+    _scan(qtbot, tab)
     assert len(tab.editor.view.regions) == 2 and tab.pending() is not None
     _edit_frames(tab.editor.view)
     assert tab.buttons["confirm"].text() == "Confirm 3 photo(s)"
@@ -112,7 +123,7 @@ def test_drag_and_context_menu_event(tmp_path: Path, qtbot: QtBot) -> None:
         qtbot: pytest-qt helper.
     """
     tab = _tab(tmp_path, qtbot, Answers())
-    _run(qtbot, tab, "scan")
+    _scan(qtbot, tab)
     view = tab.editor.view
     item = next(i for i in view.scene().items() if isinstance(i, RegionItem) and i.index == 1)
     before = view.regions[1].cx
@@ -136,7 +147,7 @@ def test_detect_again_discard_and_cancel(tmp_path: Path, qtbot: QtBot) -> None:
     """
     answers = Answers()
     tab = _tab(tmp_path, qtbot, answers)
-    _run(qtbot, tab, "scan")
+    _scan(qtbot, tab)
     tab.form.snap.setChecked(False)
     _run(qtbot, tab, "detect")
     assert len(tab.editor.view.regions) == 2
@@ -161,7 +172,7 @@ def test_save_error_keeps_scan_waiting(tmp_path: Path, qtbot: QtBot) -> None:
     messages: list[str] = []
     tab.message.connect(messages.append)
     tab.form.album.setText(str(blocker / "album"))
-    _run(qtbot, tab, "scan")
+    _scan(qtbot, tab)
     _run(qtbot, tab, "confirm")
     assert messages[-1].startswith("Error:") and tab.pending() is not None
 

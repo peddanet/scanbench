@@ -33,11 +33,37 @@ def test_print_dialog(qtbot: QtBot) -> None:
     qtbot.addWidget(dialog)
     assert dialog.printer.currentData() == "MX920"
     assert list(dialog.options.choices) == ["InputSlot", "PageSize"]
-    dialog.options.choices["InputSlot"].setCurrentText("CDTray")
+    sizes = dialog.options.choices["PageSize"]
+    texts = [sizes.itemText(i) for i in range(sizes.count())]
+    assert texts == ["A4 (210 x 297 mm)", "Letter (216 x 279 mm)", "",
+                     "Photo 10 x 15 cm (4 x 6 in), borderless",
+                     "Photo 13 x 18 cm (5 x 7 in, 2L)"]
+    slots = dialog.options.choices["InputSlot"]
+    assert [slots.itemText(i) for i in range(3)] == ["Automatic", "Photo tray", "CD/DVD tray"]
+    assert dialog.options.hint.text() == ""
+    slots.setCurrentIndex(slots.findData("CDTray"))
     dialog.copies.setValue(2)
     assert dialog.job() == PrintJob("MX920", 2, {"InputSlot": "CDTray", "fit-to-page": ""})
+    sizes.setCurrentIndex(sizes.findData("5x7"))
+    assert dialog.job().options["PageSize"] == "5x7"
     dialog.printer.setCurrentIndex(1)
     assert dialog.job().printer == "Office"
+
+
+def test_print_dialog_without_disc_tray(qtbot: QtBot) -> None:
+    """A driver without CD/DVD tray gets a hint below the options.
+
+    Args:
+        qtbot: pytest-qt helper.
+    """
+    script = {**CUPS_SCRIPT, ("lpoptions",): [ok(
+        "InputSlot/Media Source: *Auto Main ByPassTray\nDuplex/2-Sided Printing: "
+        "*None DuplexNoTumble\n")]}
+    dialog = PrintDialog(CupsClient(FakeShell(script=script)), "x")
+    qtbot.addWidget(dialog)
+    assert "no CD/DVD tray" in dialog.options.hint.text()
+    duplex = dialog.options.choices["Duplex"]
+    assert duplex.itemText(1) == "Two-sided, flip on long edge (book)"
 
 
 @pytest.mark.parametrize("script,text", [

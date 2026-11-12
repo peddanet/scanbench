@@ -4,7 +4,7 @@ Back to: [Concept](README.md) · [Documentation home](../README.md)
 
 | | |
 |---|---|
-| Status | proposal, revision 1, 2026-11-12; not yet implemented |
+| Status | revision 2, 2026-11-12: decisions D7–D15 taken; parts implemented in 0.2.3 (see 1.3) |
 | Builds on | [concept revision 1](scanbench-concept.md), scanner reference rev. 4 ("format matrix"), release 0.2.1 |
 | Decides | which options exist, how their effect is shown, where they are stored, how sessions are saved and resumed |
 
@@ -67,10 +67,10 @@ It rests on three ideas:
 
 | Request | Release |
 |---|---|
-| zoom in and out of the preview | 0.2.3 |
-| horizontal and vertical guide lines, pulled out of a ruler and removed again | 0.2.3 |
-| undo and redo buttons for all frame edits | 0.2.3 |
-| exact values per photo (angle, width, height) | 0.2.3 |
+| zoom in and out of the preview | 0.2.3 (done) |
+| horizontal and vertical guide lines, pulled out of a ruler and removed again | 0.2.3 (done) |
+| undo and redo buttons for all frame edits | 0.2.3 (done) |
+| exact values per photo (angle, width, height) | 0.2.3 (done) |
 | preview scan at 75 to 150 dpi, then a high-resolution scan of only the area around the photos | 0.2.3 (done) |
 | live scan progress: image building up, progress bar, page counter, times; cancel | 0.2.3 (done) |
 | separate photos lying edge to edge; draw frames by hand; merge frames | 0.2.3 (done) |
@@ -317,6 +317,7 @@ below `~/scripts`.
 
 ### 5.4 Opening and resuming
 
+- Sessions live in the sessions directory (D8), changeable in the settings.
 - On start: a list **Continue session** with every unfinished session: name,
   kind, pages or photos (confirmed / waiting), last change, size on disk.
 - **File > Open session**, **Recent sessions**, **Save session as ...**
@@ -369,14 +370,14 @@ names.
 | rename at any time | renaming the project renames the folder, the session directory and the title in `album.json` and `session.json` in one step; open windows follow |
 | over days | the start list shows the projects; choosing one continues its session |
 
-Open points (decisions before 0.3.1):
+Decisions of 2026-11-12 (see [chapter 9](#9-open-decisions-and-risks)):
 
-| # | Question | Proposal |
+| # | Question | Decision |
 |---|---|---|
-| D12 | characters in folder names | keep letters (also umlauts), digits, space, `-`, `_`; replace `/` and control characters; the display name keeps everything |
-| D13 | renaming onto an existing folder | refuse with a message; never merge silently |
-| D14 | documents and photos in one project | a project can hold both kinds; each kind has its own sub-folder |
-| D15 | where photo folders live | below a base folder chosen once (default `~/Pictures`); the project name is the sub-folder |
+| D12 | characters in folder names | letters (also umlauts and ß), digits, space, `-`, `_`; `/` and control characters become `-`; the display name keeps everything |
+| D13 | renaming onto an existing folder | a dialog offers all three ways: cancel and choose another name, merge both projects (photo numbers renumbered without clashes), or append a number (`Family 1970 (2)`); nothing happens without the choice |
+| D14 | documents and photos in one project | a project holds both kinds, in the sub-folders `photos/` and `documents/` |
+| D15 | where project folders go | below one base folder chosen once in the settings, default `~/Pictures/scanbench/`; the project name is the sub-folder: `~/Pictures/scanbench/<project>/photos/` |
 
 ## 6. Keeping the overview: screen layout
 
@@ -489,13 +490,16 @@ The "Entwurf" (first draft) requested on 2026-11-12 is increment 0.3.0.
 
 ## 9. Open decisions and risks
 
-| # | Question | Proposal |
+Decided by the user on 2026-11-12:
+
+| # | Question | Decision |
 |---|---|---|
-| D7 | writing TOML | the small library `tomli-w` as dependency instead of an own writer |
-| D8 | session location | `$SCANBENCH_HOME/sessions` (with the user's setting below `~/scripts/scanbench.d`) |
-| D9 | raw scans after finishing | keep by default; delete only after confirmation |
-| D10 | prescan with airscan | 150 dpi is the lowest airscan resolution; a prescan therefore takes noticeable time. Offer it as a button, never automatically |
+| D7 | writing TOML | the library `tomli-w` as dependency |
+| D8 | session location | default `$SCANBENCH_HOME/sessions` (without `SCANBENCH_HOME`: `~/.local/share/scanbench/sessions`), changeable in the settings |
+| D9 | raw scans after finishing | keep; delete only on request |
+| D10 | preview scan | every photo page starts with a preview scan; then **Scan photos** scans only the area of the frames (changed from the proposal "button only") |
 | D11 | German interface | concept rev. 1 decided English with Qt translation files; tooltips and help texts are written so that they can be translated |
+| D12–D15 | projects | see [5.8](#58-projects) |
 
 | Risk | Mitigation |
 |---|---|

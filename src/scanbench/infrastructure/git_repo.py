@@ -4,6 +4,7 @@ from pathlib import Path
 
 from scanbench.domain.update_error import UpdateError
 from scanbench.domain.version import Version
+from scanbench.infrastructure.git_refs import GitRefs
 from scanbench.infrastructure.git_versions import GitVersions
 from scanbench.infrastructure.shell import Shell
 
@@ -20,6 +21,7 @@ class GitRepo:
         """
         self._shell = shell
         self._versions = versions
+        self.refs = GitRefs(shell)
 
     @property
     def root(self) -> Path:
@@ -57,9 +59,7 @@ class GitRepo:
             branch: Branch name.
             start: Start point for a new branch; None requires the branch to exist.
         """
-        exists = self._shell.run("git", "rev-parse", "--verify", "-q",
-                                 f"refs/heads/{branch}", check=False).ok
-        if exists or start is None:
+        if self.refs.has_branch(branch) or start is None:
             self._shell.run("git", "switch", branch)
         else:
             self._shell.run("git", "switch", "-c", branch, start)
