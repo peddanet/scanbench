@@ -273,3 +273,57 @@ def test_previous_and_next_photo(tmp_path: Path, qtbot: QtBot) -> None:
     editor.show_scan(None, DPI, [])
     actions["next"].trigger()
     assert editor.view.selected_index() == -1
+
+
+def test_split_and_add_from_frame_menu(tmp_path: Path, qtbot: QtBot) -> None:
+    """A frame around two photos is split; a frame can be added from a frame's menu.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: pytest-qt helper.
+    """
+    editor = editor_with(tmp_path, qtbot, [Placed(150, 200, 105, 150)])
+    view = editor.view
+    centre = item(view, 0).polygon().boundingRect().center()
+    menu = RegionMenus(view).menu_at(QPointF(view.mapFromScene(centre)))
+    assert menu is not None
+    _trigger(menu, "Split into top and bottom")
+    assert len(view.regions) == 2 and view.selected_index() == 0
+    top, bottom = view.regions
+    assert top.height / MM == pytest.approx(100, abs=0.5)
+    assert top.cy / MM == pytest.approx(100, abs=0.5)
+    assert bottom.cy / MM == pytest.approx(200, abs=0.5)
+    _trigger(RegionMenus(view).item_menu(1), "Split into left and right")
+    assert len(view.regions) == 3 and view.regions[1].width / MM == pytest.approx(75, abs=0.5)
+    add = next(a.menu() for a in RegionMenus(view).item_menu(0, QPointF(50, 50)).actions()
+               if a.text() == "Add frame here")
+    assert isinstance(add, QMenu)
+    _trigger(add, "10 x 15 cm")
+    assert len(view.regions) == 4 and view.selected_index() == 3
+    editor.undo()
+    assert len(view.regions) == 3
+
+
+def test_tool_buttons_wrap_instead_of_hiding(qtbot: QtBot) -> None:
+    """In a narrow window the tool buttons use more rows; all stay reachable.
+
+    Args:
+        qtbot: pytest-qt helper.
+    """
+    editor = FrameEditor("hint")
+    qtbot.addWidget(editor)
+    tools = editor.tools.toolbar
+    one_row = tools.flow.heightForWidth(5000)
+    assert tools.flow.heightForWidth(300) > 2 * one_row
+    assert tools.flow.sizeHint().height() == one_row
+    assert tools.flow.minimumSize().width() > 0
+    assert tools.flow.count() > len(editor.tools.actions) - 1
+    editor.resize(320, 600)
+    editor.show()
+    qtbot.waitExposed(editor)
+    bottoms = {tools.flow.itemAt(i).geometry().top()  # type: ignore[union-attr]
+               for i in range(tools.flow.count())}
+    assert len(bottoms) > 2
+    assert tools.flow.itemAt(999) is None and tools.flow.takeAt(999) is None
+    taken = tools.flow.takeAt(0)
+    assert taken is not None and tools.flow.count() > 0

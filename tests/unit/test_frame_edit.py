@@ -107,3 +107,14 @@ def test_scan_area_clamped() -> None:
     """Areas are kept inside the glass."""
     assert ScanArea(-5, 10, 300, 400).clamped(216, 297) == ScanArea(0, 10, 216, 287)
     assert ScanArea(250, 300, 10, 10).clamped(216, 297) == ScanArea(216, 297, 0, 0)
+
+
+def test_split_keeps_skew() -> None:
+    """Halves of a skewed frame lie along its own axes."""
+    region = CropRegion(100, 100, 80, 40, 90.0, 1)
+    top, bottom = frame_edit.split(region, True)
+    assert (top.width, top.height, top.angle, top.quarter_turns) == (80, 20, 90.0, 1)
+    assert (top.cx, top.cy) == pytest.approx((110, 100))
+    assert (bottom.cx, bottom.cy) == pytest.approx((90, 100))
+    left, _right = frame_edit.split(region, False)
+    assert left.width == 40 and (left.cx, left.cy) == pytest.approx((100, 80))

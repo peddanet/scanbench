@@ -2,6 +2,8 @@
 
 import threading
 
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QProgressBar, QPushButton, QWidget
 
 from scanbench.domain.scan_progress import ScanProgress
@@ -14,6 +16,9 @@ class ProgressPanel(QWidget):
     number, elapsed and remaining time. Without a percentage (e.g. while
     saving) the bar runs as a busy indicator.
     """
+
+    cancelling = Signal()
+    """Cancel was requested (button, Esc or Switch now)."""
 
     def __init__(self) -> None:
         """Build the hidden panel."""
@@ -30,6 +35,11 @@ class ProgressPanel(QWidget):
         layout.addWidget(self.meter)
         layout.addWidget(self.cancel_button)
         self.cancel_button.clicked.connect(self.cancel)
+        # Esc cancels while a cancellable job runs (the panel is visible then)
+        self.escape = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        self.escape.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.escape.activated.connect(self.cancel)
+        self.escape.setEnabled(False)
         self.hide()
 
     def start(self, text: str, cancellable: bool = True) -> threading.Event:
@@ -47,6 +57,7 @@ class ProgressPanel(QWidget):
         self.meter.setRange(0, 0)          # busy until the first percentage arrives
         self.cancel_button.setEnabled(cancellable)
         self.cancel_button.setVisible(cancellable)
+        self.escape.setEnabled(cancellable)
         self.show()
         return self.cancel_event
 
@@ -65,8 +76,11 @@ class ProgressPanel(QWidget):
         """Ask the running job to stop."""
         self.cancel_event.set()
         self.cancel_button.setEnabled(False)
+        self.escape.setEnabled(False)
         self.label.setText("Cancelling ...")
+        self.cancelling.emit()
 
     def finish(self) -> None:
         """Hide the panel."""
+        self.escape.setEnabled(False)
         self.hide()

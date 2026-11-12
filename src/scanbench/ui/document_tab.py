@@ -58,6 +58,8 @@ class DocumentTab(ScanTab):
         controls.addLayout(form)
         for key, _ in BUTTONS[:8]:
             controls.addWidget(self.buttons[key])
+            if key == "scan":
+                controls.addWidget(self.cancel_button)
         output = QFormLayout()
         output.addRow("PDF size:", self.quality)
         controls.addLayout(output)

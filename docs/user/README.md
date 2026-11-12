@@ -130,7 +130,8 @@ All commands run as normal user.
 | Content | Default | With `SCANBENCH_HOME` |
 |---|---|---|
 | Settings (album folder) | `~/.config/scanbench` | `$SCANBENCH_HOME/config` |
-| Logs | `~/.local/state/scanbench/logs` | `$SCANBENCH_HOME/logs` |
+| Logs: `scanbench.log` (start, end, every status text, errors with traceback; rotated at 1 MB, 5 files) and `crash.log` (call stacks after a hard crash) | `~/.local/state/scanbench/logs` | `$SCANBENCH_HOME/logs` |
+| Sessions and the handover to a new release | `~/.local/share/scanbench/sessions` | `$SCANBENCH_HOME/sessions` |
 | Raw scans of the running session, deleted on exit | `~/.cache/scanbench/session-*` | `$SCANBENCH_HOME/cache/session-*` |
 | Installed releases | `~/.local/share/scanbench/venvs/X.Y.Z`, active one linked as `venv` | `$SCANBENCH_HOME/venvs/X.Y.Z` |
 | Applied patch archives | `~/.local/share/scanbench/releases` | `$SCANBENCH_HOME/releases` |
@@ -231,8 +232,19 @@ glass is never scanned at full resolution. A preview cannot be confirmed.
 
 **Progress:** while scanning, the image builds up in the preview and the
 status bar shows a progress bar and e.g. `Page 1 of 1 · 45 % · 0:12 · about
-0:15 left`; in the feeder the page count is `Page 3 of ?`. **Cancel** stops
-the scan; pages already scanned from the feeder are kept.
+0:15 left`; in the feeder the page count is `Page 3 of ?`.
+
+**Cancel:** while a job runs, **Cancel (Esc)** appears below the scan buttons
+of the tab (and in the status bar); the **Esc** key does the same.
+
+| Job | What Cancel does |
+|---|---|
+| scan (flatbed, feeder, preview, Scan photos) | stops `scanimage`; pages already scanned from the feeder are kept |
+| Detect again | the running detection finishes, its result is discarded; the previous frames stay |
+| Confirm (saving photos) | stops before the next photo; saved photos stay in the album, the frames not yet saved keep waiting and **Confirm** saves only those |
+| Save PDF, Print | cannot be cancelled (they take seconds) |
+
+The status bar then says e.g. `Cancelled - Saved 1 photo(s); 1 still waiting`.
 
 | Scanner backend | Resolutions | Note |
 |---|---|---|
@@ -283,6 +295,8 @@ own size, skew and turn.
 | delete a frame | right-click > Delete frame, or the Delete key |
 | add a frame | **Draw frame**, or right-click on free space > Add frame here > size, or Add frame: whole page |
 | join frames (one photo was split by mistake) | select both (Ctrl + click), right-click > Merge 2 selected frames |
+| split a frame (two photos were found as one) | right-click > Split into top and bottom, or Split into left and right; then adjust each half |
+| add a frame next to or on top of another | right-click on a frame or on free space > Add frame here > size |
 | type exact values | right-click > Exact values ..., or **E** |
 
 The orange grip marks the top of the frame: if you rotate a frame so that the
@@ -378,7 +392,7 @@ switched in one atomic step. The active and the previous release are kept.
 |---|---|
 | update started from this window (**scanbench > Update ...**) | switches automatically when done |
 | update installed from a terminal or another window | asks "Switch to it now?" |
-| a scan, save or print job runs | waits and switches when the job is done |
+| a scan, save or print job runs | waits and switches when the job is done; a bar above the tabs says so and offers **Switch now**, which cancels the job and switches at once |
 
 **The open work is handed over:** the new window selects the same scanner,
 opens the same tab and shows the photo scan waiting for confirmation (with
@@ -429,10 +443,19 @@ scanbench doctor
 It shows version, directories and every external program with its location
 or the package to install.
 
+**After a crash or an error**, send the end of the logs (normal user, reads
+only; without `SCANBENCH_HOME` the folder is `~/.local/state/scanbench/logs`):
+
+~~~bash
+tail -n 80 "${SCANBENCH_HOME:-$HOME/.local/state/scanbench}/logs/scanbench.log"
+tail -n 80 "${SCANBENCH_HOME:-$HOME/.local/state/scanbench}/logs/crash.log"
+~~~
+
 | Problem | Check |
 |---|---|
 | scanner not found | `scanimage -L` lists what SANE sees; install `sane-airscan` for network scanners; scanner and computer in the same network; close other scanning programs that hold the device. `scanbench devices --test` must at least show the virtual scanner `test` |
-| photos not found or merged | leave space between photos; close the lid; very light photos on a white lid: add the frame by hand and adjust it with the grips |
+| photos not found or merged | close the lid; very light photos on a white lid: draw the frame (D) or split a merged frame (right-click > Split ...) and adjust it with the grips |
+| tool buttons cut off | they wrap into more rows in a narrow window; nothing is hidden |
 | no reduced PDF sizes | `sudo apt install ghostscript` |
 | printing fails | `lpstat -t` shows scheduler, queues and waiting jobs; "No printer is set up in CUPS" means no queue exists: add the printer in the printer settings of your desktop |
 | an option such as the CD/DVD tray is missing | the queue uses a driver without it (often IPP Everywhere) |
