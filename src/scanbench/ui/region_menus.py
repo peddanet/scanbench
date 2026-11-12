@@ -187,7 +187,7 @@ class RegionMenus:
             The menu, or None when no scan is shown.
         """
         view = self._view
-        if view.pixmap_item is None:
+        if not view.picture.shown():
             return None
         item = view.itemAt(position.toPoint())
         if isinstance(item, GuideItem):

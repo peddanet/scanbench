@@ -131,7 +131,7 @@ class FrameEditor(QWidget):
         Args:
             horizontal: Direction of the guide.
         """
-        if self.view.pixmap_item is not None:
+        if self.view.picture.shown():
             add_guide(self.view.scene(), horizontal)
 
     def _edit_values(self) -> None:
