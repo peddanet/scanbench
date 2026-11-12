@@ -471,6 +471,7 @@ tail -n 80 "${SCANBENCH_HOME:-$HOME/.local/state/scanbench}/logs/crash.log"
 |---|---|
 | scanner not found | `scanimage -L` lists what SANE sees; install `sane-airscan` for network scanners; scanner and computer in the same network; close other scanning programs that hold the device. `scanbench devices --test` must at least show the virtual scanner `test` |
 | photos not found or merged | close the lid; very light photos on a white lid: draw the frame (D) or split a merged frame (right-click > Split ...) and adjust it with the grips |
+| frame editor empty after a high-resolution scan (frames visible, no image; terminal: `Rejecting image as it exceeds the current allocation limit`) | fixed in 0.2.8; in older versions start with `QT_IMAGEIO_MAXALLOC=4096 scanbench` (limit in MB for this start only). Confirming saves the photos correctly in either case |
 | tool buttons cut off | they wrap into more rows in a narrow window; nothing is hidden |
 | no reduced PDF sizes | `sudo apt install ghostscript` |
 | printing fails | `lpstat -t` shows scheduler, queues and waiting jobs; "No printer is set up in CUPS" means no queue exists: add the printer in the printer settings of your desktop |

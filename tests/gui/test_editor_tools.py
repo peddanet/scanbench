@@ -4,8 +4,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from PIL import Image
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-from PySide6.QtGui import QWheelEvent
+from PySide6.QtGui import QImageReader, QWheelEvent
 from PySide6.QtWidgets import QMenu
 from pytestqt.qtbot import QtBot
 
@@ -358,3 +359,40 @@ def test_tool_buttons_wrap_instead_of_hiding(qtbot: QtBot) -> None:
     assert tools.flow.itemAt(999) is None and tools.flow.takeAt(999) is None
     taken = tools.flow.takeAt(0)
     assert taken is not None and tools.flow.count() > 0
+
+
+def test_large_scan_is_shown_reduced(tmp_path: Path, qtbot: QtBot) -> None:
+    """A scan above Qt's 256 MB decode limit is shown; the limit is restored.
+
+    0.2.6 showed an empty view after a 1200 dpi area scan.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: pytest-qt helper.
+    """
+    path = tmp_path / "large.png"
+    Image.fromarray(np.full((10000, 7000, 3), 200, dtype=np.uint8)).save(path)  # 267 MB
+    limit = QImageReader.allocationLimit()
+    editor = FrameEditor("hint")
+    qtbot.addWidget(editor)
+    editor.show_scan(path, 1200, [CropRegion(3000, 4000, 2000, 3000)])
+    view = editor.view
+    assert view.picture.shown() and view.frame_size == (7000, 10000)
+    assert max(view.picture.pixmap().width(), view.picture.pixmap().height()) == 1600
+    assert QImageReader.allocationLimit() == limit and len(view.regions) == 1
+
+
+def test_unreadable_scan_is_reported(tmp_path: Path, qtbot: QtBot) -> None:
+    """A broken scan file leaves the frames and says why nothing is shown.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: pytest-qt helper.
+    """
+    path = tmp_path / "broken.png"
+    path.write_bytes(b"not an image")
+    editor = FrameEditor("hint")
+    qtbot.addWidget(editor)
+    editor.show_scan(path, 300, [CropRegion(100, 100, 50, 50)])
+    assert not editor.view.picture.shown() and editor.view.regions
+    assert editor.details.text().startswith("The scan cannot be displayed (broken.png")
