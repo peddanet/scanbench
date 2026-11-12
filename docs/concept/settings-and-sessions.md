@@ -67,10 +67,10 @@ It rests on three ideas:
 
 | Request | Release |
 |---|---|
-| zoom in and out of the preview | 0.2.3 |
-| horizontal and vertical guide lines, pulled out of a ruler and removed again | 0.2.3 |
-| undo and redo buttons for all frame edits | 0.2.3 |
-| exact values per photo (angle, width, height) | 0.2.3 |
+| zoom in and out of the preview | 0.2.3 (done) |
+| horizontal and vertical guide lines, pulled out of a ruler and removed again | 0.2.3 (done) |
+| undo and redo buttons for all frame edits | 0.2.3 (done) |
+| exact values per photo (angle, width, height) | 0.2.3 (done) |
 | preview scan at 75 to 150 dpi, then a high-resolution scan of only the area around the photos | 0.2.3 (done) |
 | live scan progress: image building up, progress bar, page counter, times; cancel | 0.2.3 (done) |
 | separate photos lying edge to edge; draw frames by hand; merge frames | 0.2.3 (done) |
