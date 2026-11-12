@@ -8,6 +8,7 @@ from scanbench.application.release_context import ReleaseContext
 from scanbench.domain.patch_archive import PatchArchive
 from scanbench.domain.update_error import UpdateError
 from scanbench.domain.version import Version
+from scanbench.infrastructure.archive_finder import ArchiveFinder
 
 
 class HotfixRelease:
@@ -62,13 +63,52 @@ class HotfixRelease:
         ctx.progress.step(f"{version}: branch hotfix/{version} from main, apply patches")
         ctx.git.switch("main")
         ctx.git.pull()
+        self._drop_stale_branch(archive)
         ctx.git.switch(f"hotfix/{version}", start="main")
         if ctx.versions.version_line() != version:
             with tempfile.TemporaryDirectory() as tmp:
                 ctx.git.apply(self._patches(archive, Path(tmp)))
+            ctx.git.refs.set_config(self._key(version), ArchiveFinder.digest(archive))
         if ctx.versions.version_line() != version:
             raise UpdateError(f"after applying, the version line is "
                               f"{ctx.versions.version_line()}, not {version}")
+
+    @staticmethod
+    def _key(version: Version) -> str:
+        """Return the git configuration key that records the applied delivery.
+
+        Args:
+            version: Release being built.
+
+        Returns:
+            E.g. ``scanbench.hotfix-0-2-3``.
+        """
+        return f"scanbench.hotfix-{str(version).replace('.', '-')}"
+
+    def _drop_stale_branch(self, archive: PatchArchive) -> None:
+        """Discard a local hotfix branch that was built from another delivery.
+
+        A failed run leaves ``hotfix/X``; a corrected delivery of the same
+        version must not reuse its commits. A branch already pushed is not
+        discarded silently.
+
+        Args:
+            archive: The delivery to apply.
+
+        Raises:
+            UpdateError: If the stale branch is already on GitHub.
+        """
+        ctx, branch = self._ctx, f"hotfix/{archive.version}"
+        refs = ctx.git.refs
+        if not refs.has_branch(branch) or \
+                refs.get_config(self._key(archive.version)) == ArchiveFinder.digest(archive):
+            return
+        if refs.on_remote(branch):
+            raise UpdateError(f"{branch} on GitHub was built from another delivery of "
+                              f"{archive.version}; close its pull request and delete the "
+                              f"branch on GitHub and locally, then run the update again")
+        ctx.git.delete_branch(branch)
+        ctx.progress.info(f"discarded local {branch}: built from another delivery")
 
     def _into_main(self, version: Version) -> None:
         """Run the gates, push, and merge the hotfix into ``main``.

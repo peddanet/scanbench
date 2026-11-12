@@ -6,6 +6,30 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-12
+
+### Changed
+
+- Print dialog: readable names instead of driver keywords (paper sizes with
+  dimensions, trays, duplex, colour); photo sizes marked "Photo ..." and
+  listed after a separator; the keyword is the tooltip. A hint says when
+  the driver offers no CD/DVD tray. Checked against the driverless queue of
+  a PIXMA MX925: upper/lower cassette, Canon media names such as "Photo
+  Paper Plus Glossy II", sizes in mm (`200x148mm`), JIS B5.
+
+- Photo album: every page starts with the preview scan (decision D10); the
+  button "Scan whole page" is gone.
+- `scanbench update`: deliveries may carry a number (`…-patch-N.tar.gz`,
+  used from 0.2.5 on); the highest number wins. A local hotfix branch built
+  from another delivery of the same version is discarded and rebuilt (one
+  already on GitHub stops the update). Archives that are no longer needed are
+  moved from the download folder to the archive store at every run.
+
+### Fixed
+
+- Print dialog: templates such as `Custom.WIDTHxHEIGHT` are no longer offered;
+  chosen, they were sent literally and the job failed.
+
 ## [0.2.3] - 2026-11-12
 
 ### Added

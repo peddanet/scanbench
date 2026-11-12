@@ -72,17 +72,18 @@ class UpdateService:
         ctx.installer.install(target)
         ctx.progress.info("running scanbench windows switch at their next idle moment")
 
-    def _store(self, applied: list[PatchArchive]) -> None:
-        """Move applied archives out of the download folder.
+    def _store(self, archives: list[PatchArchive]) -> None:
+        """Move archives out of the download folder into the archive store.
 
         Args:
-            applied: Archives that became releases.
+            archives: Applied or no longer needed archives.
         """
         store = self._ctx.paths.release.archive_store
         store.mkdir(parents=True, exist_ok=True)
-        for archive in applied:
-            shutil.move(str(archive.path), str(store / archive.path.name))
-            self._ctx.progress.info(f"archived {archive.path.name} -> {store}")
+        for archive in archives:
+            if archive.path.exists():
+                shutil.move(str(archive.path), str(store / archive.path.name))
+                self._ctx.progress.info(f"archived {archive.path.name} -> {store}")
 
     def run(self) -> int:
         """Execute the update and print the summary, also on failure.
@@ -96,6 +97,7 @@ class UpdateService:
             with self._lock:
                 released = self._released()
                 pending = self._finder.pending(released)
+                self._store(self._finder.obsolete(released, pending))
                 progress.info("pending: " + (", ".join(str(a.version) for a in pending)
                                              or "none"))
                 chosen = self._choose(pending) if pending else []
@@ -104,6 +106,7 @@ class UpdateService:
                 newest = chosen[-1].version if chosen else released
                 self._install(newest)
                 self._store(chosen)
+                self._store(self._finder.obsolete(newest, []))
         except UpdateError as exc:
             progress.summary(f"FAILED: {exc}")
             return 1

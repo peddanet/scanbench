@@ -18,7 +18,7 @@ from scanbench.ui.task_runner import TaskRunner
 CUPS_SCRIPT = {
     ("lpstat", "-e"): [ok("MX920\nOffice\n")],
     ("lpstat", "-d"): [ok("system default destination: MX920\n")],
-    ("lpoptions",): [ok("PageSize/Media Size: *A4 10x15\n"
+    ("lpoptions",): [ok("PageSize/Media Size: *A4 4x6.Borderless Letter 5x7\n"
                         "InputSlot/Paper Source: *Auto PhotoTray CDTray\n")],
     ("lp",): [ok("request id is MX920-3 (1 file(s))\n")],
 }

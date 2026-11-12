@@ -1,5 +1,6 @@
 """Fake adapters for the release workflow tests."""
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from fakes import FakeShell
@@ -8,6 +9,7 @@ from scanbench.domain.update_error import UpdateError
 from scanbench.domain.version import Version
 from scanbench.infrastructure.app_paths import AppPaths
 from scanbench.infrastructure.dev_environment import DevEnvironment
+from scanbench.infrastructure.git_refs import GitRefs
 from scanbench.infrastructure.git_repo import GitRepo
 from scanbench.infrastructure.git_versions import GitVersions
 from scanbench.infrastructure.github_cli import GitHubCli
@@ -58,11 +60,83 @@ class FakeVersions(GitVersions):
         return self.refs.get(ref)
 
 
+@dataclass
+class GitState:
+    """Branches, pushed refs and configuration of the fake clone.
+
+    Attributes:
+        branches: Local branches.
+        pushed: Refs pushed to origin.
+        config: Git configuration values.
+        remote: Whether ``origin`` exists.
+    """
+
+    branches: set[str] = field(default_factory=lambda: {"main", "develop"})
+    pushed: set[str] = field(default_factory=set)
+    config: dict[str, str] = field(default_factory=dict)
+    remote: bool = True
+
+
+class FakeRefs(GitRefs):
+    """Answers from the fake clone state."""
+
+    def __init__(self, state: GitState) -> None:
+        """Store the state.
+
+        Args:
+            state: Shared state of the fake clone.
+        """
+        super().__init__(FakeShell(Path(".")))
+        self._state = state
+
+    def has_branch(self, branch: str) -> bool:
+        """Return whether the branch was created.
+
+        Args:
+            branch: Branch.
+
+        Returns:
+            True if known.
+        """
+        return branch in self._state.branches
+
+    def on_remote(self, branch: str) -> bool:
+        """Return whether the branch was pushed.
+
+        Args:
+            branch: Branch.
+
+        Returns:
+            True if pushed.
+        """
+        return branch in self._state.pushed
+
+    def get_config(self, key: str) -> str:
+        """Return a stored configuration value.
+
+        Args:
+            key: Key.
+
+        Returns:
+            Value or empty string.
+        """
+        return self._state.config.get(key, "")
+
+    def set_config(self, key: str, value: str) -> None:
+        """Store a configuration value.
+
+        Args:
+            key: Key.
+            value: Value.
+        """
+        self._state.config[key] = value
+
+
 class FakeGit(GitRepo):
     """Records git operations; applying patches sets the version line."""
 
     def __init__(self, log: Log, versions: FakeVersions, root: Path,
-                 remote: bool = True) -> None:
+                 remote: bool = True, state: GitState | None = None) -> None:
         """Store the shared log.
 
         Args:
@@ -70,10 +144,13 @@ class FakeGit(GitRepo):
             versions: Version state changed by ``apply``.
             root: Pretended clone root.
             remote: Whether ``origin`` exists.
+            state: Branches, pushed refs and configuration; a new one if None.
         """
         super().__init__(FakeShell(root), versions)
         self.log, self.fake_versions, self.remote = log, versions, remote
         self.next_line: Version | None = None
+        self.state = state or GitState()
+        self.refs = FakeRefs(self.state)
 
     def has_remote(self) -> bool:
         """Return whether origin exists.
@@ -95,6 +172,7 @@ class FakeGit(GitRepo):
             start: Start point.
         """
         self.log.append(f"switch {branch}")
+        self.state.branches.add(branch)
 
     def pull(self) -> None:
         """Record."""
@@ -117,6 +195,7 @@ class FakeGit(GitRepo):
             ref: Ref.
         """
         self.log.append(f"push {ref}")
+        self.state.pushed.add(ref)
 
     def tag(self, version: Version) -> None:
         """Record.
@@ -133,6 +212,7 @@ class FakeGit(GitRepo):
             branch: Branch.
         """
         self.log.append(f"delete {branch}")
+        self.state.branches.discard(branch)
 
 
 class FakeGitHub(GitHubCli):
