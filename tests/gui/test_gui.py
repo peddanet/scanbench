@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-from scan_fakes import page, write_png
+from scan_fakes import OPTIONS, page, write_png
 from PySide6.QtCore import QProcess
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 from pytestqt.qtbot import QtBot
@@ -16,7 +16,9 @@ from scanbench.domain.version import Version
 from scanbench.application.document_session import Page
 from scanbench.application.photo_session import PhotoScan
 from scanbench.domain.crop_region import CropRegion
+from scanbench.domain.device_info import DeviceInfo
 from scanbench.infrastructure.app_paths import AppPaths
+from scanbench.infrastructure.scanimage_backend import ScanimageBackend
 from scanbench.ui import main_window as main_window_module
 from scanbench.ui.gui_application import GuiApplication
 from scanbench.ui.main_window import TAB_TITLES, MainWindow
@@ -216,6 +218,8 @@ def _switch_with_open_work(paths: AppPaths, qtbot: QtBot) -> None:
     page_file = write_png(Path(bench.work.name) / "documents" / "p.png", page(90), 100)
     bench.documents.resume([Page(page_file, 100, 2, 1)])
     window.tabs.setCurrentIndex(1)
+    bench.devices.combo.setCurrentIndex(1)                  # fake:2
+    qtbot.waitUntil(lambda: not bench.runner.busy(), timeout=60000)
     assert old.restart("2.0.0") is False and not old.handover().directory.exists()
     assert old.restart("2.0.0") is True and old.handover().directory.exists()
     window.close()
@@ -235,12 +239,18 @@ def test_switch_hands_over_the_open_work(tmp_path: Path, qtbot: QtBot,
     results = [False, True]
     monkeypatch.setattr(QProcess, "startDetached", lambda _p, _a: (results.pop(0), 0))
     monkeypatch.setattr(QApplication, "quit", lambda: None)
+    # independent of the scanners of the machine running the tests
+    scanners = [DeviceInfo("fake:1", "Fake", "One", "flatbed scanner"),
+                DeviceInfo("fake:2", "Fake", "Two", "flatbed scanner")]
+    monkeypatch.setattr(ScanimageBackend, "devices", lambda _self, _test=False: scanners)
+    monkeypatch.setattr(ScanimageBackend, "options", lambda _self, _device: OPTIONS)
     _switch_with_open_work(paths, qtbot)
     new = GuiApplication("2.0.0", paths, is_release=False)
     new_window = new.show()
     assert new.workbench is not None
     qtbot.waitUntil(lambda: not new.workbench.runner.busy(), timeout=60000)   # type: ignore
     assert new_window.tabs.currentIndex() == 1
+    assert new.workbench.devices.device() == "fake:2"
     taken = new.workbench.photos.pending()
     assert taken is not None and taken.regions == [CropRegion(20, 20, 30, 30, 1.5, 1)]
     assert taken.path.exists() and taken.path.parent.parent == Path(new.workbench.work.name)
