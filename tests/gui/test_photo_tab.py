@@ -10,12 +10,14 @@ from pytestqt.qtbot import QtBot
 from gui_helpers import Answers, context, idle, trigger
 from scan_fakes import FakeScanner
 from scenes import DPI, Placed, scan
-from scanbench.application.photo_session import PhotoSession
+from scanbench.application.photo_session import PhotoScan, PhotoSession
 from scanbench.domain.print_job import PrintJob
+from scanbench.domain.scan_error import ScanError
 from scanbench.domain.scan_progress import ScanProgress
 from scanbench.infrastructure.image_store import ImageStore
 from scanbench.infrastructure.photo_detector import PhotoDetector
 from scanbench.infrastructure.settings_store import SettingsStore
+from scanbench.ui.frame_editor import FrameEditor
 from scanbench.ui.photo_tab import PhotoTab
 from scanbench.ui.progress_panel import ProgressPanel
 from scanbench.ui.frame_items import RegionItem
@@ -221,3 +223,122 @@ def test_progress_panel_cancel(qtbot: QtBot) -> None:
     assert not panel.cancel_button.isVisible() or not panel.cancel_button.isEnabled()
     panel.finish()
     assert panel.isHidden()
+
+
+def test_cancel_saving(tmp_path: Path, qtbot: QtBot,
+                       monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cancel while saving keeps the saved photos; the other frames wait.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: pytest-qt helper.
+        monkeypatch: pytest helper.
+    """
+    tab = _tab(tmp_path, qtbot, Answers(None, tmp_path / "album"))
+    tab.form.album.setText(str(tmp_path / "album"))
+    messages: list[str] = []
+    tab.message.connect(messages.append)
+    progress = tab._ctx.progress  # pylint: disable=protected-access
+    _scan(qtbot, tab)
+    original_save = ImageStore.save
+
+    def save_then_cancel(*args: object) -> Path:
+        """Save one photo, then press Cancel.
+
+        Args:
+            *args: Arguments of ``save``.
+
+        Returns:
+            The saved file.
+        """
+        result = original_save(*args)  # type: ignore[arg-type]
+        progress.cancel()
+        return result
+    monkeypatch.setattr(ImageStore, "save", staticmethod(save_then_cancel))
+    tab.buttons["confirm"].click()
+    assert not tab.cancel_button.isHidden()
+    idle(qtbot, tab._ctx.runner)  # pylint: disable=protected-access
+    assert len(tab.saved) == 1 and tab.buttons["confirm"].text() == "Confirm 1 photo(s)", messages
+    assert messages[-1] == "Cancelled - Saved 1 photo(s); 1 still waiting"
+    assert tab.cancel_button.isHidden()
+    monkeypatch.setattr(ImageStore, "save", staticmethod(original_save))
+    _run(qtbot, tab, "confirm")
+    assert len(tab.saved) == 1 and tab.pending() is None
+
+
+def test_cancel_detection_and_scan(tmp_path: Path, qtbot: QtBot,
+                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cancel keeps the old frames after a detection and reports a stopped scan.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: pytest-qt helper.
+        monkeypatch: pytest helper.
+    """
+    tab = _tab(tmp_path, qtbot, Answers(None, tmp_path / "album"))
+    messages: list[str] = []
+    tab.message.connect(messages.append)
+    progress = tab._ctx.progress  # pylint: disable=protected-access
+    _scan(qtbot, tab)
+    before = tab.pending()
+    session = tab._session  # pylint: disable=protected-access
+    original_detect = session.detect
+
+    def detect_then_cancel(*args: object) -> PhotoScan:
+        """Detect, then press Cancel.
+
+        Args:
+            *args: Arguments of ``detect``.
+
+        Returns:
+            The new proposal.
+        """
+        result = original_detect(*args)  # type: ignore[arg-type]
+        progress.cancel()
+        return result
+    monkeypatch.setattr(session, "detect", detect_then_cancel)
+    _run(qtbot, tab, "detect")
+    assert tab.pending() is before and messages[-1] == "Cancelled; the previous frames stay"
+    tab.discard()
+    scanner = session._scanner  # pylint: disable=protected-access
+
+    def stopped(*_args: object, **_kwargs: object) -> list[Path]:
+        """Behave like a scan stopped by Cancel.
+
+        Args:
+            *_args: Ignored.
+            **_kwargs: Ignored.
+
+        Raises:
+            ScanError: Always.
+        """
+        progress.cancel()
+        raise ScanError("scan cancelled")
+    monkeypatch.setattr(scanner, "scan", stopped)
+    _run(qtbot, tab, "preview")
+    assert messages[-1] == "Cancelled"
+
+
+def test_escape_cancels_and_editor_escape_only_while_drawing(qtbot: QtBot) -> None:
+    """Esc of the progress panel is active during a cancellable job only.
+
+    Args:
+        qtbot: pytest-qt helper.
+    """
+    panel = ProgressPanel()
+    qtbot.addWidget(panel)
+    event = panel.start("Scanning ...")
+    assert panel.escape.isEnabled()
+    panel.escape.activated.emit()
+    assert event.is_set() and not panel.escape.isEnabled()
+    panel.start("Saving ...", cancellable=False)
+    assert not panel.escape.isEnabled()
+    panel.finish()
+    editor = FrameEditor("hint")
+    qtbot.addWidget(editor)
+    stop = editor.tools.actions["stop_draw"]
+    assert not stop.isEnabled()
+    editor.set_draw_mode(True)
+    assert stop.isEnabled()
+    stop.trigger()
+    assert not editor.view.mode.draw and not stop.isEnabled()

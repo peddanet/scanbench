@@ -52,8 +52,11 @@ class PhotoTab(ScanTab):
             "Scan only the area around the frames of the preview, at the chosen resolution")
         controls = QVBoxLayout()
         controls.addWidget(self.form)
-        for button in self.buttons.values():
-            controls.addWidget(button)
+        for key in ("preview", "area"):
+            controls.addWidget(self.buttons[key])
+        controls.addWidget(self.cancel_button)
+        for key in ("confirm", "discard", "detect", "print"):
+            controls.addWidget(self.buttons[key])
         controls.addStretch(1)
         side = QWidget()
         side.setLayout(controls)
@@ -147,7 +150,22 @@ class PhotoTab(ScanTab):
         snap = self.form.snap.isChecked()
         self.run_job("Detecting photos ...",
                      lambda: self._session.detect(current.path, current.dpi, snap),
-                     self._detected)
+                     lambda scan: self._detected_unless_cancelled(scan, current), True)
+
+    def _detected_unless_cancelled(self, scan: PhotoScan, previous: PhotoScan) -> None:
+        """Show a new detection, or keep the previous frames after a cancel.
+
+        The detection itself cannot be interrupted; a cancel discards its result.
+
+        Args:
+            scan: Result of the detection.
+            previous: The scan with the frames before.
+        """
+        if self._ctx.progress.cancel_event.is_set():
+            self._session.current = previous
+            self.finish("Cancelled; the previous frames stay")
+            return
+        self._detected(scan)
 
     def _detected(self, scan: PhotoScan) -> None:
         """Show the proposal and wait for confirmation.
@@ -185,8 +203,10 @@ class PhotoTab(ScanTab):
     def confirm(self) -> None:
         """Cut, deskew and save the confirmed photos."""
         album = self.form.album_options()
+        progress = self._ctx.progress
         self.run_job(f"Saving photos to {album.folder} ...",
-                     lambda: self._session.accept(album), self._saved)
+                     lambda: self._session.accept(album, progress.cancel_event), self._saved,
+                     True)
 
     def _saved(self, written: list[Path]) -> None:
         """Report the saved photos and get ready for the next page.
@@ -195,6 +215,14 @@ class PhotoTab(ScanTab):
             written: The photo files.
         """
         self.saved = written
+        rest = self._session.current
+        if rest is not None:             # cancelled: the frames not yet saved wait
+            self.editor.show_scan(rest.path, rest.dpi, rest.regions)
+            self.buttons["confirm"].setText(f"Confirm {len(rest.regions)} photo(s)")
+            self.editor.hint.setText(f"Saved {len(written)} photo(s); {len(rest.regions)} "
+                                     "frame(s) not saved yet. Confirm saves them.")
+            self.finish(f"Saved {len(written)} photo(s); {len(rest.regions)} still waiting")
+            return
         self.editor.show_scan(None, 0, [])
         self.buttons["confirm"].setText("Confirm photos")
         names = f"{written[0].name} ... {written[-1].name}" if written else "nothing"

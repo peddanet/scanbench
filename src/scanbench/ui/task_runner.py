@@ -1,9 +1,12 @@
 """Run slow jobs (scanning, saving, printing) outside the GUI thread."""
 
+import logging
 from collections.abc import Callable
 from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
+
+from scanbench.infrastructure.app_log import LOGGER
 
 
 class _Relay(QObject):
@@ -34,6 +37,7 @@ class _Job(QRunnable):
             result = self._work()
         except Exception as exc:  # pylint: disable=broad-exception-caught
             # Any error must reach the user; a lost exception would hang the tab.
+            logging.getLogger(LOGGER).exception("job failed: %s", exc)
             self._emit(False, str(exc) or type(exc).__name__)
         else:
             self._emit(True, result)

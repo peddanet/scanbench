@@ -69,12 +69,39 @@ def test_switch_waits_while_busy(qtbot: QtBot) -> None:
     window.switch_requested.connect(requested.append)
     window.set_busy(True)
     window.offer_switch("2.0.0", automatic=True)
-    assert not requested and "saved or discarded" in window.statusBar().currentMessage()
+    assert not requested and not window.banner.isHidden()
+    assert "when the running job is done" in window.banner.label.text()
     window.set_busy(False)
-    assert requested == ["2.0.0"]
+    assert requested == ["2.0.0"] and window.banner.isHidden()
     window.offer_switch("3.0.0", automatic=False)
     assert requested == ["2.0.0"]
     assert "restart to use it" in window.statusBar().currentMessage()
+
+
+def test_switch_now_cancels_the_job(qtbot: QtBot) -> None:
+    """Switch now asks to cancel the job and switches without a question when idle.
+
+    Args:
+        qtbot: pytest-qt helper that owns the widgets.
+    """
+    window = MainWindow("1.0.0", confirm=lambda _w, _v: False)
+    qtbot.addWidget(window)
+    requested: list[str] = []
+    cancels: list[bool] = []
+    window.switch_requested.connect(requested.append)
+    window.cancel_requested.connect(lambda: cancels.append(True))
+    window.set_busy(True)
+    window.offer_switch("2.0.0", automatic=False)
+    window.banner.button.click()
+    assert cancels == [True] and not requested
+    window.set_busy(False)
+    assert requested == ["2.0.0"]
+    window.unsaved = lambda: True
+    window.offer_switch("3.0.0", automatic=True)
+    assert "saved or discarded" in window.banner.label.text()
+    window.banner.take()
+    window.banner.button.click()                    # nothing waits: only a cancel request
+    assert len(cancels) == 2
 
 
 def test_ask_switch_uses_message_box(monkeypatch: pytest.MonkeyPatch, qtbot: QtBot) -> None:

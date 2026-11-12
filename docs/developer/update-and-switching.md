@@ -79,8 +79,11 @@ sequenceDiagram
 
 `MainWindow.is_busy()` is true while a background job runs (counted through
 the task runner's `started`/`finished` signals, see [GUI](gui.md)). An
-offered switch is then stored and retried after every job end and every
-status message, i.e. after each user command. (`MainWindow.unsaved` can
+offered switch is then kept in the `SwitchBanner` above the tabs, with the
+reason, and retried after every job end and every status message, i.e. after
+each user command. **Switch now** emits `MainWindow.cancel_requested`
+(connected to `ProgressPanel.cancel`) and marks the switch as confirmed; it
+happens as soon as the job has stopped. (`MainWindow.unsaved` can
 still postpone switches; since 0.2.3 it is not wired, because open work is
 handed over.)
 

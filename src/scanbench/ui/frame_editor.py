@@ -7,11 +7,12 @@ import numpy as np
 from numpy.typing import NDArray
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import QGraphicsView, QLabel, QToolBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGraphicsView, QLabel, QVBoxLayout, QWidget
 
 from scanbench.domain import frame_edit
 from scanbench.domain.crop_region import CropRegion
 from scanbench.domain.frame_history import FrameHistory
+from scanbench.ui.flow_bar import FlowBar
 from scanbench.ui.guide_items import add_guide, remove_guides
 from scanbench.ui.qt_images import to_qimage
 from scanbench.ui.region_menus import RegionMenus
@@ -44,12 +45,12 @@ class EditorTools:
     """The toolbar and what it controls.
 
     Attributes:
-        toolbar: The toolbar.
+        toolbar: The tool buttons; they wrap into a second row when narrow.
         actions: Actions by key.
         zoom: Zoom controller.
     """
 
-    toolbar: QToolBar
+    toolbar: FlowBar
     actions: dict[str, QAction]
     zoom: ZoomControl
 
@@ -74,7 +75,7 @@ class FrameEditor(QWidget):
         self.hint.setWordWrap(True)
         self.history = FrameHistory()
         self._replaying = False
-        self.tools = EditorTools(QToolBar(), {}, ZoomControl(self.view))
+        self.tools = EditorTools(FlowBar(), {}, ZoomControl(self.view))
         self._build_tools()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -113,11 +114,15 @@ class FrameEditor(QWidget):
             self.tools.actions[key] = action
             if key in ("redo", "actual", "draw", "no_guides", "values"):
                 self.tools.toolbar.addSeparator()
+        # Esc ends draw mode; it is enabled only then, so that otherwise Esc
+        # cancels a running job (shortcut of the progress panel)
         stop = QAction(self)
         stop.setShortcut(QKeySequence(Qt.Key.Key_Escape))
         stop.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         stop.triggered.connect(lambda: self.tools.actions["draw"].setChecked(False))
+        stop.setEnabled(False)
         self.addAction(stop)
+        self.tools.actions["stop_draw"] = stop
         self._update_actions()
 
     def _guide(self, horizontal: bool) -> None:
@@ -166,6 +171,9 @@ class FrameEditor(QWidget):
         action = self.tools.actions.get("draw")
         if action is not None and action.isChecked() != bool(on):
             action.setChecked(bool(on))
+        stop = self.tools.actions.get("stop_draw")
+        if stop is not None:
+            stop.setEnabled(bool(on))
 
     def _changed(self, regions: list[CropRegion]) -> None:
         """Record a user change and update the details line.
