@@ -14,6 +14,7 @@ from scanbench.ui.page_list import PageList
 from scanbench.ui.scan_tab import ScanTab
 from scanbench.ui.settings_panel import SettingsPanel, fill
 from scanbench.ui.tab_context import TabContext
+from scanbench.ui.tab_settings import PresetBar, TabSettings
 
 BUTTONS = (("scan", "Scan"), ("left", "Rotate left"), ("right", "Rotate right"),
            ("up", "Move up"), ("down", "Move down"), ("delete", "Delete page"),
@@ -38,6 +39,10 @@ class DocumentTab(ScanTab):
         """
         super().__init__(context)
         self._session = session
+        self.settings = TabSettings("documents", context.settings)
+        self.settings.message.connect(self.message.emit)
+        self.settings.changed.connect(lambda _key: self.refresh())
+        self.presets = PresetBar(self.settings, context.dialogs.ask_name)
         self.panel = SettingsPanel(300)
         self.quality = QComboBox()
         fill(self.quality, [(q.label, q) for q in PdfQuality], PdfQuality.EBOOK)
@@ -48,27 +53,32 @@ class DocumentTab(ScanTab):
             "sides, then merge the two runs into reading order.")
         self._layout()
         self._connect()
+        self.settings.apply()
         self.update_options()
 
     def _layout(self) -> None:
         """Arrange controls and pages."""
         form = QFormLayout()
-        self.panel.add_rows(form)
+        self.panel.add_rows(form, lambda name, w: self.settings.row(f"documents.{name}", w))
         controls = QVBoxLayout()
+        controls.addWidget(self.presets)
         controls.addLayout(form)
         for key, _ in BUTTONS[:8]:
             controls.addWidget(self.buttons[key])
             if key == "scan":
                 controls.addWidget(self.cancel_button)
         output = QFormLayout()
-        output.addRow("PDF size:", self.quality)
+        output.addRow("PDF size:", self.settings.row("documents.pdf_size", self.quality))
         controls.addLayout(output)
         controls.addWidget(self.buttons["save"])
         controls.addWidget(self.buttons["print"])
         controls.addStretch(1)
+        right = QVBoxLayout()
+        right.addWidget(self.settings.summary)
+        right.addWidget(self.pages, 1)
         layout = QHBoxLayout(self)
         layout.addLayout(controls)
-        layout.addWidget(self.pages, 1)
+        layout.addLayout(right, 1)
 
     def _connect(self) -> None:
         """Connect signals to commands."""
@@ -86,6 +96,7 @@ class DocumentTab(ScanTab):
     def update_options(self) -> None:
         """Adapt the settings to the selected device."""
         self.panel.apply(self._ctx.devices.options())
+        self.settings.apply()
         self.refresh()
 
     def refresh(self) -> None:

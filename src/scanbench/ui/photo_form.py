@@ -7,71 +7,78 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFormLayout, QHBoxLayout, Q
 
 from scanbench.application.photo_session import AlbumOptions
 from scanbench.domain.image_format import ImageFormat
-from scanbench.infrastructure.settings_store import SettingsStore
 from scanbench.ui.dialogs import ChooseFolder
 from scanbench.ui.settings_panel import SettingsPanel, fill
-
-ALBUM_KEY = "photo.album"
-"""Settings key of the album folder."""
+from scanbench.ui.tab_settings import TabSettings
 
 
 class PhotoForm(QWidget):
     """Colour, resolution, output format, album folder and detection options.
 
-    The album folder is remembered across restarts in the settings file.
+    Every widget is a row of the tab's settings (badge, reset); the album
+    folder is saved as default at once, as before.
     """
 
-    def __init__(self, settings: SettingsStore, choose: ChooseFolder) -> None:
+    def __init__(self, settings: TabSettings, choose: ChooseFolder) -> None:
         """Build the form.
 
         Args:
-            settings: Persistent settings.
+            settings: The photo tab's settings.
             choose: Folder question.
         """
         super().__init__()
-        self._settings = settings
+        self.settings = settings
         self._choose = choose
         self.panel = SettingsPanel(600, documents=False)
         self.image_format = QComboBox()
         fill(self.image_format, [("PNG (lossless)", ImageFormat.PNG),
                                  ("JPEG (smaller)", ImageFormat.JPEG)])
-        default_album = Path.home() / "Pictures" / "scanbench-album"
-        self.album = QLineEdit(settings.get(ALBUM_KEY, str(default_album)))
+        self.album = QLineEdit()
         self.snap = QCheckBox("Fit frames to photo sizes (10 x 15 cm ...)")
-        self.snap.setChecked(True)
         self.keep_scans = QCheckBox("Keep full-page scans in the album")
         browse_button = QPushButton("Choose ...")
-        folder = QHBoxLayout()
-        folder.addWidget(self.album, 1)
-        folder.addWidget(browse_button)
         form = QFormLayout()
-        self.panel.add_rows(form)
-        form.addRow("Format:", self.image_format)
+        self.panel.add_rows(form, lambda name, w: settings.row(f"photos.{name}", w))
+        form.addRow("Format:", settings.row("photos.format", self.image_format))
+        folder = QHBoxLayout()
+        folder.addWidget(settings.row("photos.album", self.album), 1)
+        folder.addWidget(browse_button)
         form.addRow("Album:", folder)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(form)
-        layout.addWidget(self.snap)
-        layout.addWidget(self.keep_scans)
+        layout.addWidget(settings.row("photos.snap", self.snap))
+        layout.addWidget(settings.row("photos.keep_scans", self.keep_scans))
+        layout.addWidget(settings.sections())
         browse_button.clicked.connect(self.browse)
-        self.album.editingFinished.connect(self.remember)
 
-    def remember(self) -> Path:
-        """Store the album folder in the settings.
+    def folder(self) -> Path:
+        """Return the album folder; a typed but not yet confirmed path counts.
 
         Returns:
             The folder with ``~`` expanded.
         """
-        folder = Path(self.album.text()).expanduser()
-        self._settings.set(ALBUM_KEY, str(folder))
-        return folder
+        typed = self.album.text().strip()
+        if typed and typed != self.settings.value("photos.album"):
+            self.album.editingFinished.emit()        # takes it over like leaving the field
+        return Path(str(self.settings.value("photos.album"))).expanduser()
 
     def browse(self) -> None:
         """Choose the album folder."""
-        chosen = self._choose(self, Path(self.album.text()).expanduser())
+        chosen = self._choose(self, self.folder())
         if chosen is not None:
             self.album.setText(str(chosen))
-            self.remember()
+            self.album.editingFinished.emit()
+
+    def snap_tolerance(self) -> float:
+        """Return the size tolerance for fitting frames, 0 if fitting is off.
+
+        Returns:
+            Fraction per side, e.g. 0.06.
+        """
+        if not self.snap.isChecked():
+            return 0.0
+        return int(self.settings.value("photos.snap_tolerance")) / 100
 
     def album_options(self) -> AlbumOptions:
         """Return where and how photos are stored.
@@ -79,5 +86,7 @@ class PhotoForm(QWidget):
         Returns:
             The album options.
         """
-        return AlbumOptions(self.remember(), self.image_format.currentData(),
-                            self.keep_scans.isChecked())
+        value = self.settings.value
+        return AlbumOptions(self.folder(), self.image_format.currentData(),
+                            self.keep_scans.isChecked(), int(value("photos.jpeg_quality")),
+                            int(value("photos.png_compression")))

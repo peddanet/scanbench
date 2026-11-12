@@ -1,6 +1,7 @@
 """Find delivered patch archives in the download folder."""
 
 import hashlib
+import tarfile
 from pathlib import Path
 
 from scanbench.domain.patch_archive import PatchArchive
@@ -59,6 +60,30 @@ class ArchiveFinder:
         return [a for a in self.all_archives() if a.path not in kept and (
             (released is not None and a.version <= released)
             or a.version in {k.version for k in keep})]
+
+    @staticmethod
+    def base(archive: PatchArchive) -> Version | None:
+        """Return the version the archive was built on, from its ``BASE`` file.
+
+        Archives from 0.3.0 on contain ``<folder>/BASE`` with one version line;
+        older archives have none.
+
+        Args:
+            archive: The archive.
+
+        Returns:
+            The base version, or None if the archive does not name it.
+        """
+        try:
+            with tarfile.open(archive.path, "r:gz") as tar:
+                for member in tar.getmembers():
+                    if member.isfile() and Path(member.name).name == "BASE":
+                        stream = tar.extractfile(member)
+                        text = stream.read(64).decode().strip() if stream else ""
+                        return Version.parse(text)
+        except (OSError, tarfile.TarError, ValueError, UnicodeDecodeError):
+            return None
+        return None
 
     @staticmethod
     def digest(archive: PatchArchive) -> str:

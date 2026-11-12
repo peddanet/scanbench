@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtWidgets import QDialog, QFileDialog, QWidget
+from PySide6.QtWidgets import QDialog, QFileDialog, QInputDialog, QWidget
 
 from scanbench.domain.print_job import PrintJob
 from scanbench.infrastructure.cups_client import CupsClient
@@ -15,6 +15,9 @@ SaveAs = Callable[[QWidget, Path], Path | None]
 
 ChooseFolder = Callable[[QWidget, Path], Path | None]
 """Asks for a folder, starting at the given path."""
+
+AskName = Callable[[QWidget, str], str | None]
+"""Asks for a name: (parent, question) -> name or None."""
 
 AskPrint = Callable[[QWidget, str, bool], PrintJob | None]
 """Asks for printer and options: (parent, title, photos) -> job or None."""
@@ -46,6 +49,20 @@ def choose_folder(parent: QWidget, start: Path) -> Path | None:
     """
     name = QFileDialog.getExistingDirectory(parent, "Album folder", str(start))
     return Path(name) if name else None
+
+
+def ask_name(parent: QWidget, question: str) -> str | None:
+    """Ask for a name, e.g. of a preset.
+
+    Args:
+        parent: Parent widget.
+        question: Label of the input field.
+
+    Returns:
+        The name, or None if cancelled or empty.
+    """
+    text, accepted = QInputDialog.getText(parent, "scanbench", question)
+    return (text.strip() or None) if accepted else None
 
 
 def print_asker(cups: CupsClient) -> AskPrint:
@@ -82,8 +99,10 @@ class Dialogs:
         ask_print: Printer and options question.
         save_as: PDF file name question.
         choose_folder: Album folder question.
+        ask_name: Name question (presets).
     """
 
     ask_print: AskPrint
     save_as: SaveAs = save_pdf_as
     choose_folder: ChooseFolder = choose_folder
+    ask_name: AskName = ask_name

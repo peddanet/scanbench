@@ -11,6 +11,7 @@ Lead document of the developer documentation.
 | [Scanner access and documents](scanning-and-documents.md) | SANE adapter, device options, document session, PDF output, manual duplex |
 | [Photo album](photo-album.md) | detection algorithm, frame coordinates and editing, cropping, frame editor |
 | [Printing](printing.md) | CUPS adapter, print dialog, driver options |
+| [Settings and presets](settings.md) | settings schema, layers, TOML files, settings form, presets, generated options table |
 | [GUI structure and threads](gui.md) | workbench, tabs, task runner, work directory, GUI tests |
 | [Coding standard](coding-standard.md) | rules and measurable limits enforced by the gates |
 | [Quality gates](quality-gates.md) | `tools/check.sh`, the six gates, staged output, pre-push hook |
