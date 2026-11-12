@@ -11,6 +11,7 @@ from scanbench.domain.print_job import PrintJob
 from scanbench.infrastructure.cups_client import CupsClient
 from scanbench.ui.device_bar import DeviceBar
 from scanbench.ui.dialogs import Dialogs
+from scanbench.ui.progress_panel import ProgressPanel
 from scanbench.ui.tab_context import TabContext
 from scanbench.ui.task_runner import TaskRunner
 
@@ -104,7 +105,7 @@ def context(qtbot: QtBot, scanner: FakeScanner, answers: Answers) -> TabContext:
     device_bar.refresh()
     idle(qtbot, runner)
     return TabContext(device_bar, runner, CupsClient(FakeShell(script=CUPS_SCRIPT)),
-                      answers.dialogs())
+                      answers.dialogs(), ProgressPanel())
 
 
 def trigger(widget: QWidget, text: str) -> None:

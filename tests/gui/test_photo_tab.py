@@ -12,10 +12,12 @@ from scan_fakes import FakeScanner
 from scenes import DPI, Placed, scan
 from scanbench.application.photo_session import PhotoSession
 from scanbench.domain.print_job import PrintJob
+from scanbench.domain.scan_progress import ScanProgress
 from scanbench.infrastructure.image_store import ImageStore
 from scanbench.infrastructure.photo_detector import PhotoDetector
 from scanbench.infrastructure.settings_store import SettingsStore
 from scanbench.ui.photo_tab import PhotoTab
+from scanbench.ui.progress_panel import ProgressPanel
 from scanbench.ui.frame_items import RegionItem
 from scanbench.ui.region_menus import RegionMenus
 from scanbench.ui.region_view import RegionView
@@ -91,13 +93,13 @@ def test_scan_edit_and_confirm(tmp_path: Path, qtbot: QtBot) -> None:
     assert tab.form.album.text() == str(album)
     assert tab.form.panel.resolution.currentData() == 600
     _run(qtbot, tab, "scan")
-    assert len(tab.editor.view.regions) == 2 and tab.waiting()
+    assert len(tab.editor.view.regions) == 2 and tab.pending() is not None
     _edit_frames(tab.editor.view)
     assert tab.buttons["confirm"].text() == "Confirm 3 photo(s)"
     _run(qtbot, tab, "confirm")
     assert [p.name for p in tab.saved] == ["photo-0001.png", "photo-0002.png",
                                            "photo-0003.png"]
-    assert not tab.waiting() and RegionMenus(tab.editor.view).menu_at(QPointF(1, 1)) is None
+    assert tab.pending() is None and RegionMenus(tab.editor.view).menu_at(QPointF(1, 1)) is None
     _run(qtbot, tab, "print")
     assert tab.editor.hint.text().startswith("Saved 3 photo(s)")
 
@@ -139,7 +141,7 @@ def test_detect_again_discard_and_cancel(tmp_path: Path, qtbot: QtBot) -> None:
     _run(qtbot, tab, "detect")
     assert len(tab.editor.view.regions) == 2
     tab.buttons["discard"].click()
-    assert not tab.waiting() and not tab.editor.view.regions
+    assert tab.pending() is None and not tab.editor.view.regions
     tab.detect_again()
     tab.print_photos()
     tab.form.browse()
@@ -161,4 +163,50 @@ def test_save_error_keeps_scan_waiting(tmp_path: Path, qtbot: QtBot) -> None:
     tab.form.album.setText(str(blocker / "album"))
     _run(qtbot, tab, "scan")
     _run(qtbot, tab, "confirm")
-    assert messages[-1].startswith("Error:") and tab.waiting()
+    assert messages[-1].startswith("Error:") and tab.pending() is not None
+
+
+def test_preview_then_scan_photos(tmp_path: Path, qtbot: QtBot) -> None:
+    """Preview finds frames; 'Scan photos' scans only their area and allows confirming.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: pytest-qt helper.
+    """
+    tab = _tab(tmp_path, qtbot, Answers(None, tmp_path / "album"))
+    tab.form.album.setText(str(tmp_path / "album"))
+    progress = tab._ctx.progress  # pylint: disable=protected-access
+    assert tab.buttons["preview"].isEnabled() and not tab.buttons["area"].isEnabled()
+    _run(qtbot, tab, "preview")
+    current = tab.pending()
+    assert current is not None and current.preview and len(current.regions) == 2
+    assert tab.buttons["area"].isEnabled() and not tab.buttons["confirm"].isEnabled()
+    assert tab.editor.hint.text().startswith("Preview at 75 dpi")
+    assert progress.meter.value() == 100 and progress.isHidden()
+    _run(qtbot, tab, "area")
+    current = tab.pending()
+    assert current is not None and not current.preview and current.dpi == DPI
+    assert tab.buttons["confirm"].isEnabled() and not tab.buttons["preview"].isEnabled()
+    _run(qtbot, tab, "confirm")
+    assert len(tab.saved) == 2
+
+
+def test_progress_panel_cancel(qtbot: QtBot) -> None:
+    """The panel shows a busy bar, then percent and text; Cancel sets the event.
+
+    Args:
+        qtbot: pytest-qt helper.
+    """
+    panel = ProgressPanel()
+    qtbot.addWidget(panel)
+    event = panel.start("Scanning ...")
+    assert panel.meter.maximum() == 0 and panel.cancel_button.isEnabled()
+    panel.update_progress(ScanProgress(1, 1, 40.0, 4.0))
+    assert panel.meter.value() == 40 and "Page 1 of 1" in panel.label.text()
+    panel.cancel_button.click()
+    assert event.is_set() and panel.label.text() == "Cancelling ..."
+    assert not panel.cancel_button.isEnabled()
+    panel.start("Saving ...", cancellable=False)
+    assert not panel.cancel_button.isVisible() or not panel.cancel_button.isEnabled()
+    panel.finish()
+    assert panel.isHidden()

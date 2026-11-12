@@ -6,6 +6,49 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-12
+
+### Added
+
+- Preview scan: the whole glass at the lowest resolution of at least 75 dpi;
+  then **Scan photos** scans only the area around the frames (plus 3 mm) at
+  the chosen resolution and takes the frames over. **Scan whole page** keeps
+  the old one-step way.
+- Live progress for every scan: the image builds up in the preview; the
+  status bar shows a progress bar and page, percent, elapsed and remaining
+  time; **Cancel** stops the scan (feeder pages already scanned are kept).
+  `scanimage` output is streamed as PNM and read with `--progress`.
+- Frame editor toolbar: undo/redo, zoom (also Ctrl + wheel, up to 16 x),
+  fit and 100 %, draw frame (D), horizontal and vertical guide lines,
+  exact values per frame (width, height, skew in 0.1 degree steps, turn),
+  previous/next photo (PgUp/PgDown).
+- Context menu: merge selected frames (when one photo was split).
+- Frame numbers in a blue box at the top-left corner of every frame.
+- Version in the window title and permanently at the right of the status bar.
+- Release switch hands over the open work: scanner, tab, the photo scan
+  waiting for confirmation with its frames and the document pages
+  (`sessions/handover/`).
+
+### Changed
+
+- Photos lying edge to edge are separated (`FrameSplitter`): along a light
+  seam, or along an edge line if both parts have a standard photo size; up to
+  three cuts per blob, slanted seams up to 3 degrees.
+- Frame sides are placed on the photo edges at full scan resolution
+  (`EdgeRefiner`): lid colour, a light strip up to 1.5 mm and the grey
+  shadow line along an edge stay outside; a wider white print border stays
+  inside. Detection tests now require 1.5 mm instead of 3 mm accuracy.
+- Fitting to photo sizes never grows a frame by more than 1 mm per side.
+- Arrow keys move a frame by one screen pixel (Shift: ten), so zooming in
+  gives finer steps down to one scan pixel; previously fixed 1 mm / 10 mm.
+- An unconfirmed photo scan or an unsaved document no longer delays a
+  release switch, because the work is handed over.
+- `ScanimageBackend.scan` takes a path prefix instead of directory and stem.
+
+### Fixed
+
+- Guide lines: `shape()` of a line with a cosmetic pen no longer recurses.
+
 ## [0.2.2] - 2026-11-12
 
 ### Documentation

@@ -5,9 +5,12 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QPointF
 from PySide6.QtWidgets import QMenu
 
+from scanbench.domain import frame_edit
 from scanbench.domain.crop_region import CropRegion
 from scanbench.domain.paper_format import A4, PHOTO_PRESETS
 from scanbench.ui.frame_items import RegionItem
+from scanbench.ui.frame_values_dialog import FrameValuesDialog
+from scanbench.ui.guide_items import GuideItem
 
 if TYPE_CHECKING:
     from scanbench.ui.region_view import RegionView
@@ -65,13 +68,38 @@ class RegionMenus:
             lambda: view.change(index, lambda r: r.turned(2)))
         menu.addAction("Align horizontally (remove skew)").triggered.connect(
             lambda: view.change(index, CropRegion.straightened))
+        menu.addAction("Exact values ...").triggered.connect(lambda: self.edit_values(index))
         fit = menu.addMenu("Fit to size")
         for paper in PHOTO_PRESETS:
             fit.addAction(paper.name).triggered.connect(
                 lambda _=False, p=paper: view.change(index, lambda r: r.fitted(p, view.dpi)))
         menu.addSeparator()
+        chosen = self.selected_indices()
+        if len(chosen) > 1 and index in chosen:
+            menu.addAction(f"Merge {len(chosen)} selected frames").triggered.connect(
+                lambda: self.merge(chosen))
         menu.addAction("Delete frame").triggered.connect(lambda: self.remove(index))
         return menu
+
+    def selected_indices(self) -> list[int]:
+        """Return the indices of all selected frames.
+
+        Returns:
+            Sorted indices.
+        """
+        return sorted(i.index for i in self._view.scene().selectedItems()
+                      if isinstance(i, RegionItem))
+
+    def merge(self, indices: list[int]) -> None:
+        """Replace several frames by one enclosing frame.
+
+        Args:
+            indices: Frames to join (at least two).
+        """
+        view = self._view
+        joined = frame_edit.merged([view.regions[i] for i in indices])
+        rest = [r for i, r in enumerate(view.regions) if i not in indices]
+        view.set_regions([*rest, joined.clamped(*view.frame_size)], len(rest))
 
     def background_menu(self, centre: QPointF) -> QMenu:
         """Build the context menu outside the frames.
@@ -95,6 +123,31 @@ class RegionMenus:
         menu.addAction("Delete all frames").triggered.connect(lambda: view.set_regions([]))
         return menu
 
+    def edit_values(self, index: int) -> None:
+        """Ask for exact width, height, skew and turn of a frame.
+
+        Args:
+            index: Region index.
+        """
+        view = self._view
+        dialog = FrameValuesDialog(view.regions[index], view.dpi, view)
+        if dialog.exec() == FrameValuesDialog.DialogCode.Accepted:
+            view.change(index, lambda _r: dialog.region())
+
+    def guide_menu(self, guide: GuideItem) -> QMenu:
+        """Build the context menu of a guide.
+
+        Args:
+            guide: The guide.
+
+        Returns:
+            The menu.
+        """
+        menu = QMenu(self._view)
+        menu.addAction("Remove guide").triggered.connect(
+            lambda: self._view.scene().removeItem(guide))
+        return menu
+
     def menu_at(self, position: QPointF) -> QMenu | None:
         """Return the context menu for a view position.
 
@@ -108,6 +161,8 @@ class RegionMenus:
         if view.pixmap_item is None:
             return None
         item = view.itemAt(position.toPoint())
+        if isinstance(item, GuideItem):
+            return self.guide_menu(item)
         while item is not None and not isinstance(item, RegionItem):
             item = item.parentItem()
         if isinstance(item, RegionItem):
