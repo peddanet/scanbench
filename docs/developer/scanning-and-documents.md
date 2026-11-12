@@ -15,6 +15,7 @@ Back to: [Developer documentation](README.md) · [Architecture](architecture.md)
 | `domain/pdf_quality.py` | `PdfQuality` | PDF size level and Ghostscript preset |
 | `domain/scan_error.py` | `ScanError` | user-facing error |
 | `domain/scan_progress.py` | `ScanProgress` | page, pages, percent, elapsed and remaining time, status text |
+| `infrastructure/device_cache.py` | `DeviceCache`, `KnownDevices` | devices, options and selection of the last run (JSON in the cache directory; broken or foreign files count as empty) |
 | `infrastructure/scanimage_backend.py` | `ScanimageBackend` | devices, options, flatbed and batch scans (Adapter) |
 | `infrastructure/scan_stream.py` | `ScanStream`, `ProgressParser` | streamed scans with progress, live image and cancel |
 | `infrastructure/pnm_assembler.py` | `PnmAssembler` | builds the partial image from a PNM stream (P4, P5, P6) |

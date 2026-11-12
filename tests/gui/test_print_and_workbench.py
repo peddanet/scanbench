@@ -11,10 +11,13 @@ from pytestqt.qtbot import QtBot
 from fakes import FakeShell, failed, ok
 from gui_helpers import CUPS_SCRIPT, idle
 from scan_fakes import FakeScanner
+from scanbench.domain.device_info import DeviceInfo
+from scanbench.domain.device_options import DeviceOptions
 from scanbench.domain.print_job import PrintJob
 from scanbench.domain.scan_error import ScanError
 from scanbench.infrastructure.app_paths import AppPaths
 from scanbench.infrastructure.cups_client import CupsClient
+from scanbench.infrastructure.device_cache import DeviceCache, KnownDevices
 from scanbench.ui import dialogs
 from scanbench.ui.device_bar import DeviceBar
 from scanbench.ui.main_window import MainWindow
@@ -207,3 +210,71 @@ def test_job_reports_result_error_and_survives_closed_receiver() -> None:
     assert seen == [5, "division by zero", "ScanError"]
     shiboken6.delete(relay)
     _Job(lambda: 5, relay).run()
+
+
+def test_device_bar_starts_with_remembered_devices(tmp_path: Path, qtbot: QtBot) -> None:
+    """The last devices and options are shown at once; the search confirms them later.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: pytest-qt helper.
+    """
+    cache = DeviceCache(tmp_path / "devices.json")
+    gone = DeviceInfo("gone:1", "Old", "Scanner", "flatbed scanner")
+    fake = FakeScanner().devices()[0]
+    cache.save(KnownDevices([gone, fake], fake.name,
+                            {fake.name: FakeScanner().options(fake.name)}))
+    scanner, runner = FakeScanner(), TaskRunner()
+    read: list[str] = []
+    original = scanner.options
+    scanner.options = lambda device: read.append(device) or original(device)  # type: ignore
+    device_bar = DeviceBar(scanner, runner, cache=cache)
+    qtbot.addWidget(device_bar)
+    messages: list[str] = []
+    device_bar.message.connect(messages.append)
+    device_bar.restore()
+    assert device_bar.device() == fake.name and device_bar.options() is not None
+    assert not runner.busy()
+    assert "known from the last run" in messages[-1]
+    device_bar.combo.setCurrentIndex(0)                 # not yet confirmed: its options are read
+    idle(qtbot, runner)
+    assert read == ["gone:1"] and device_bar.options() is not None
+    device_bar.combo.setCurrentIndex(1)
+    device_bar.refresh()
+    idle(qtbot, runner)
+    assert [device_bar.combo.itemData(i) for i in range(device_bar.combo.count())] == [fake.name]
+    assert cache.load().devices == [fake] and cache.load().selected == fake.name
+    device_bar._search_again()   # pylint: disable=protected-access
+    idle(qtbot, runner)
+    assert read[-1] == fake.name and messages[-1] == "1 scanner(s) found"
+
+
+def test_device_bar_reports_an_unreachable_device(tmp_path: Path, qtbot: QtBot) -> None:
+    """A remembered device that cannot be opened is reported.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        qtbot: pytest-qt helper.
+    """
+    cache = DeviceCache(tmp_path / "devices.json")
+    cache.save(KnownDevices([DeviceInfo("a:1", "A", "1", "x"), DeviceInfo("b:2", "B", "2", "x")]))
+    scanner, runner = FakeScanner(), TaskRunner()
+
+    def unreachable(device: str) -> DeviceOptions:
+        """Fail like a switched-off scanner.
+
+        Args:
+            device: Device name.
+
+        Raises:
+            ScanError: Always.
+        """
+        raise ScanError(f"{device} is off")
+    scanner.options = unreachable  # type: ignore[method-assign]
+    device_bar = DeviceBar(scanner, runner, cache=cache)
+    qtbot.addWidget(device_bar)
+    messages: list[str] = []
+    device_bar.message.connect(messages.append)
+    device_bar.restore()
+    idle(qtbot, runner)
+    assert messages[-1] == "Scanner not reachable: a:1 is off" and device_bar.options() is None

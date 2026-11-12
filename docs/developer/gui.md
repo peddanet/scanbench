@@ -72,6 +72,18 @@ Raw scans live in a temporary directory below the cache directory
 (`~/.cache/scanbench/session-*`), not in `/tmp`, which is a RAM file system on
 many distributions; `Workbench.close()` waits for jobs and removes it.
 
+## Scanner selection without waiting
+
+`DeviceBar.restore()` (called by `GuiApplication.show` before `refresh()`)
+fills the combo box from `DeviceCache` and emits `options_changed` with the
+remembered options, so the tabs are usable before the search ends. The
+search result (`_fill`) replaces the list and keeps the selection; it reads
+options only for a device without remembered ones. A device the user selects
+before the search of this run has finished is checked by reading its options
+(`scanimage -d … -A`); a failure is reported as "Scanner not reachable".
+**Search scanners** forgets the options of the selected device first. Every
+change is written back (`_remember`), atomically via a temporary file.
+
 ## Graphics items and Python references
 
 The frame editor (`RegionView`) never calls `QGraphicsScene.clear()`. A
