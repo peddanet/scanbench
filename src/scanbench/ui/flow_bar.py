@@ -148,8 +148,8 @@ class FlowBar(QWidget):
         """
         button = QToolButton()
         button.setDefaultAction(action)
-        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
-        button.setAutoRaise(True)
+        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        button.setAutoRaise(False)          # visible as a button, not as a label
         self.flow.addWidget(button)
 
     # Qt naming, like QToolBar.addSeparator
