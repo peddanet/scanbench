@@ -273,3 +273,64 @@ def test_update_discards_branch_of_another_delivery(tmp_path: Path) -> None:
     ctx, log, out = _context(tmp_path, Version(0, 1, 1), Version(0, 1, 1), state=pushed)
     assert UpdateService(ctx, ArchiveFinder(downloads), lambda p: p, nullcontext()).run() == 1
     assert "built from another delivery" in out[-1] and "delete hotfix/0.1.2" not in log
+
+
+def _based(folder: Path, version: str, base: str) -> Path:
+    """Write a delivery archive that names its base version.
+
+    Args:
+        folder: Download folder.
+        version: Version in the file name.
+        base: Content of the ``BASE`` file.
+
+    Returns:
+        The archive path.
+    """
+    path = folder / f"scanbench-{version}-patch-1.tar.gz"
+    with tarfile.open(path, "w:gz") as tar:
+        for name, data in ((f"scanbench-{version}-patch-1/BASE", f"{base}\n".encode()),
+                           (f"scanbench-{version}-patch-1/0001-x.patch", b"From 0\n")):
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return path
+
+
+@pytest.mark.parametrize(("archives", "message"), [
+    ((("0.1.2", "0.1.1"),), "0.1.2 is built on 0.1.1, which is neither released nor in the "
+                            "download folder; download scanbench-0.1.1-patch-*.tar.gz"),
+    ((("0.1.1", "0.1.0"), ("0.1.2", "0.1.0")), "0.1.2 is built on 0.1.0, but 0.1.1 comes first"),
+])
+def test_update_checks_the_chain_before_changing_anything(
+        tmp_path: Path, archives: tuple[tuple[str, str], ...], message: str) -> None:
+    """A missing or doubled link in the delivery chain stops the update at once.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        archives: Version and base per archive.
+        message: Expected start of the failure text.
+    """
+    for version, base in archives:
+        _based(tmp_path, version, base)
+    ctx, log, out = _context(tmp_path, Version(0, 1, 0), Version(0, 1, 0))
+    assert UpdateService(ctx, ArchiveFinder(tmp_path), lambda p: p, nullcontext()).run() == 1
+    assert out[-1].startswith(f"==== FAILED: {message}") and log == ["fetch"]   # read only
+    assert any("(built on 0.1.0)" in line or "(built on 0.1.1)" in line for line in out)
+
+
+def test_base_of_old_and_broken_archives(tmp_path: Path) -> None:
+    """Archives without BASE, with a bad BASE or not readable have no base.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    finder = ArchiveFinder(tmp_path)
+    old = PatchArchive.from_path(_archive(tmp_path, "0.1.1"))
+    bad = PatchArchive.from_path(_based(tmp_path, "0.1.2", "x.y"))
+    broken = tmp_path / "scanbench-0.1.3-patch.tar.gz"
+    broken.write_bytes(b"no gzip")
+    assert old is not None and bad is not None
+    assert finder.base(old) is None and finder.base(bad) is None
+    assert finder.base(PatchArchive(Version(0, 1, 3), broken, 0)) is None
+    good = PatchArchive.from_path(_based(tmp_path, "0.1.4", "0.1.3"))
+    assert good is not None and finder.base(good) == Version(0, 1, 3)

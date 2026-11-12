@@ -198,7 +198,7 @@ def test_chooser(tmp_path: Path) -> None:
     rec.answers = ["0.1.1", ""]
     assert len(choose(parse(["update"]))(pending)) == 1
     assert len(choose(parse(["update"]))(pending)) == 3
-    assert rec.lines[-1] == "Apply up to version [0.1.3]: "
+    assert rec.lines[-1] == "Apply all up to 0.1.3? [Enter = all, or the version to stop at]: "
 
 
 def test_install_desktop_exec_and_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -85,6 +85,50 @@ class UpdateService:
                 shutil.move(str(archive.path), str(store / archive.path.name))
                 self._ctx.progress.info(f"archived {archive.path.name} -> {store}")
 
+    def _list(self, pending: list[PatchArchive]) -> None:
+        """Show the pending archives in the order they will be applied.
+
+        Args:
+            pending: Pending archives, ascending.
+        """
+        progress = self._ctx.progress
+        # the summary line is read by the progress bar of the update dialog
+        progress.info("pending: " + (", ".join(str(a.version) for a in pending) or "none"))
+        if not pending:
+            return
+        progress.info("applied in this order:")
+        for number, archive in enumerate(pending, 1):
+            base = self._finder.base(archive)
+            built_on = f"  (built on {base})" if base is not None else ""
+            progress.info(f"  {number}. {archive.version}  {archive.path.name}{built_on}")
+
+    def _check_chain(self, released: Version | None, chosen: list[PatchArchive]) -> None:
+        """Make sure every archive fits the version before it, before anything changes.
+
+        An archive that names its base (``BASE`` file) must follow exactly that
+        version; archives without a base are not checked.
+
+        Args:
+            released: Newest released version, or None.
+            chosen: Archives to apply, ascending.
+
+        Raises:
+            UpdateError: If an archive is built on a version that is not there.
+        """
+        current = released
+        for archive in chosen:
+            base = self._finder.base(archive)
+            if base is not None and base != current:
+                if current is None or base > current:
+                    raise UpdateError(
+                        f"{archive.version} is built on {base}, which is neither released nor "
+                        f"in the download folder; download scanbench-{base}-patch-*.tar.gz "
+                        f"and run the update again")
+                raise UpdateError(
+                    f"{archive.version} is built on {base}, but {current} comes first; "
+                    f"keep only the archives of one delivery chain in the download folder")
+            current = archive.version
+
     def run(self) -> int:
         """Execute the update and print the summary, also on failure.
 
@@ -98,9 +142,9 @@ class UpdateService:
                 released = self._released()
                 pending = self._finder.pending(released)
                 self._store(self._finder.obsolete(released, pending))
-                progress.info("pending: " + (", ".join(str(a.version) for a in pending)
-                                             or "none"))
+                self._list(pending)
                 chosen = self._choose(pending) if pending else []
+                self._check_chain(released, chosen)
                 for archive in chosen:
                     HotfixRelease(self._ctx).run(archive)
                 newest = chosen[-1].version if chosen else released
