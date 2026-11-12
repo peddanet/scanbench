@@ -15,6 +15,10 @@ or WSD. [sane-airscan](https://github.com/alexpevzner/sane-airscan)
 **Annotated tag** -- git tag with author, date and message; marks releases.
 [git-tag](https://git-scm.com/docs/git-tag)
 
+**Area scan** -- scan of only a part of the glass (`scanimage -l -t -x -y`,
+in mm); scanbench scans the area around the frames found by a preview scan.
+[scanimage(1)](https://manpages.ubuntu.com/manpages/noble/man1/scanimage.1.html)
+
 **bandit** -- security linter for Python. [bandit](https://bandit.readthedocs.io/)
 
 **Branch coverage** -- share of statements and of taken branches executed by
@@ -44,6 +48,9 @@ values and exceptions.
 
 **Duplex** -- scanning both sides of a sheet.
 
+**Edge refinement** -- placing each frame side on the real photo edge at full
+scan resolution after the rough detection at 75 dpi (`EdgeRefiner`).
+
 **flock** -- Linux advisory file lock; the kernel releases it when the process
 ends, so a crashed update leaves no stale lock. [flock(2)](https://man7.org/linux/man-pages/man2/flock.2.html)
 
@@ -64,6 +71,13 @@ release and hotfix branches.
 **Grip (frame editor)** -- small circle on the selected photo frame; white
 grips resize, the orange grip above the top edge rotates the frame.
 
+**Guide line** -- dashed helper line in the frame editor to align frames;
+movable along one axis, removed by dragging it out of the scan.
+
+**Handover** -- the open work (scanner, tab, waiting photo scan, document
+pages) written by a window before a release switch and taken over by the new
+window (`sessions/handover`).
+
 **hicolor** -- fallback icon theme every freedesktop desktop searches.
 [Icon Theme Specification](https://specifications.freedesktop.org/icon-theme-spec/latest/)
 
@@ -74,6 +88,10 @@ grips resize, the orange grip above the top edge rotates the frame.
 
 **Keep a Changelog** -- convention for human-readable change logs.
 [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
+
+**Lab colour space** -- colour space with lightness L and two colour axes a
+and b; distances in it follow perceived colour differences.
+[OpenCV colour conversions](https://docs.opencv.org/4.x/de/d25/imgproc_color_conversions.html)
 
 **Lead document** -- the `README.md` of a documentation area; links every page
 of that area.
@@ -107,11 +125,18 @@ used for GUI tests. [pytest-qt troubleshooting](https://pytest-qt.readthedocs.io
 **PEP 668** -- marks the system Python as externally managed; packages go into
 virtual environments. [PEP 668](https://peps.python.org/pep-0668/)
 
+**PNM** -- portable anymap, the simple uncompressed image formats P4 (1 bit),
+P5 (grey) and P6 (colour); `scanimage --format=pnm` streams it row by row.
+[pnm(5)](https://manpages.debian.org/unstable/netpbm/pnm.5.en.html)
+
 **PPD** -- PostScript Printer Description; lists the options of a printer
 driver as shown by `lpoptions -l`.
 
 **pre-push hook** -- script git runs before a push; a non-zero exit stops the
 push. [githooks](https://git-scm.com/docs/githooks)
+
+**Preview scan** -- quick scan of the whole glass at a low resolution (at
+least 75 dpi) that only locates the photos.
 
 **pycodestyle** -- checker for PEP 8 style. [pycodestyle](https://pycodestyle.pycqa.org/)
 
@@ -133,6 +158,9 @@ installed release at a safe moment (no running job).
 
 **scanimage** -- command-line frontend of SANE, used by scanbench.
 [scanimage(1)](https://manpages.ubuntu.com/manpages/noble/man1/scanimage.1.html)
+
+**Seam (photo splitting)** -- straight line between two photos lying edge to
+edge: a thin light line or an edge line; `FrameSplitter` cuts blobs there.
 
 **Semantic Versioning** -- `MAJOR.MINOR.PATCH` with defined meaning.
 [semver.org](https://semver.org/)

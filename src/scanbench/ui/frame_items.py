@@ -5,12 +5,15 @@ from typing import Any
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QBrush, QColor, QPen, QPolygonF
 from PySide6.QtWidgets import (QGraphicsEllipseItem, QGraphicsItem, QGraphicsPolygonItem,
-                               QGraphicsSimpleTextItem)
+                               QGraphicsRectItem, QGraphicsSimpleTextItem)
 
 from scanbench.domain.frame_handle import FrameHandle
 
 TOP_MARK = ("↑", "←", "↓", "→")
 """Arrow per quarter turn: which side of the frame becomes the top of the photo."""
+
+BADGE_PAD = 5
+"""Space left and right of the photo number in its box, in screen pixels."""
 
 HANDLE_SIZE = 12
 """Diameter of a grip in screen pixels (independent of the zoom)."""
@@ -26,6 +29,32 @@ _CURSORS = {
     FrameHandle.RIGHT: Qt.CursorShape.SizeHorCursor,
     FrameHandle.ROTATE: Qt.CursorShape.CrossCursor,
 }
+
+
+def number_badge(number: int, parent: QGraphicsItem) -> QGraphicsRectItem:
+    """Create the photo number in a filled box, same size at every zoom.
+
+    Args:
+        number: Number shown (1-based, as in the album index).
+        parent: The frame.
+
+    Returns:
+        The badge; its top-left corner is placed by the caller.
+    """
+    badge = QGraphicsRectItem(parent)
+    badge.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+    text = QGraphicsSimpleTextItem(str(number), badge)
+    font = text.font()
+    font.setPointSize(14)
+    font.setBold(True)
+    text.setFont(font)
+    text.setBrush(QBrush(QColor(255, 255, 255)))
+    box = text.boundingRect()
+    text.setPos(BADGE_PAD, 0)
+    badge.setRect(0, 0, box.width() + 2 * BADGE_PAD, box.height())
+    badge.setBrush(QBrush(QColor(0, 110, 210)))
+    badge.setPen(QPen(QColor(255, 255, 255), 1))
+    return badge
 
 
 class HandleItem(QGraphicsEllipseItem):
@@ -72,16 +101,19 @@ class RegionItem(QGraphicsPolygonItem):
         self.setToolTip("Click to select, drag to move, drag the grips to resize or rotate; "
                         "right-click for more. The arrow points to the side that becomes "
                         "the top.")
-        label = QGraphicsSimpleTextItem(f"{index + 1} {TOP_MARK[quarter_turns % 4]}", self)
-        font = label.font()
+        mark = QGraphicsSimpleTextItem(TOP_MARK[quarter_turns % 4], self)
+        font = mark.font()
         font.setPointSize(28)
         font.setBold(True)
-        label.setFont(font)
-        label.setBrush(QBrush(QColor(255, 255, 255)))
-        label.setPen(QPen(QColor(0, 0, 0), 1))
+        mark.setFont(font)
+        mark.setBrush(QBrush(QColor(255, 255, 255)))
+        mark.setPen(QPen(QColor(0, 0, 0), 1))
         centre = polygon.boundingRect().center()
-        box = label.boundingRect()
-        label.setPos(centre.x() - box.width() / 2, centre.y() - box.height() / 2)
+        box = mark.boundingRect()
+        mark.setPos(centre.x() - box.width() / 2, centre.y() - box.height() / 2)
+        corner = min(polygon.toList(), key=lambda p: p.x() + p.y())
+        self.badge = number_badge(index + 1, self)
+        self.badge.setPos(corner)
         self.handles: list[HandleItem] = []
 
     def add_handles(self, positions: dict[FrameHandle, QPointF]) -> None:

@@ -14,6 +14,7 @@ from scanbench.domain.image_format import ImageFormat
 from scanbench.domain.scan_error import ScanError
 from scanbench.infrastructure.image_cropper import ImageCropper
 from scanbench.infrastructure.image_store import ImageStore
+from scanbench.infrastructure.edge_refiner import EdgeRefiner
 from scanbench.infrastructure.photo_detector import PhotoDetector, region_from_points
 
 MM = DPI / 25.4
@@ -90,6 +91,13 @@ LAYOUTS = {
     "photos in the corner of the glass": [
         Placed(150, 100, 75, 50, 0, None, 5), Placed(150, 100, 75, 155, 0.4, None, 6)],
     "white border on white lid": [Placed(150, 100, 100, 80, 3, 250, 7)],
+    "two touching photos stacked": [
+        Placed(150, 100, 90, 60, 0, None, 8), Placed(150, 100, 90, 160, 0, None, 9)],
+    "two touching photos side by side": [
+        Placed(90, 130, 60, 80, 0, None, 10), Placed(90, 130, 150, 80, 0, None, 11)],
+    "three photos touching in a column": [
+        Placed(130, 90, 80, 55, 0, None, 14), Placed(130, 90, 80, 145, 0, None, 15),
+        Placed(130, 90, 80, 235, 0, None, 16)],
 }
 
 
@@ -119,9 +127,55 @@ def test_detector_finds_every_photo(name: str) -> None:
     for truth in placed:
         best = min(found, key=functools.partial(_distance, photo=truth))
         assert abs(best.cx / MM - truth.cx_mm) < 2 and abs(best.cy / MM - truth.cy_mm) < 2
-        assert abs(best.width / MM - truth.width_mm) < 3
-        assert abs(best.height / MM - truth.height_mm) < 3
+        assert abs(best.width / MM - truth.width_mm) < 1.5
+        assert abs(best.height / MM - truth.height_mm) < 1.5
         assert abs(best.angle - truth.angle) < 0.5
+
+
+def test_detector_separates_touching_white_borders() -> None:
+    """Prints with white borders touching each other give one frame each.
+
+    The border is as light as the lid, so the frames hug the pictures.
+    """
+    placed = [Placed(150, 100, 90, 60, 0.5, 248, 12), Placed(150, 100, 90, 160.5, 0.5, 248, 13)]
+    found = sorted(PhotoDetector().detect(scan(placed), DPI), key=lambda r: r.cy)
+    assert len(found) == 2
+    for region, truth in zip(found, placed, strict=True):
+        assert abs(region.cx / MM - truth.cx_mm) < 2 and abs(region.cy / MM - truth.cy_mm) < 2
+
+
+@pytest.mark.parametrize(("value", "width_mm"), [(232, 1.0), (200, 0.6), (240, 1.2)])
+def test_light_strip_along_the_edge_is_cut_away(value: int, width_mm: float) -> None:
+    """An off-white strip or a grey shadow line along two sides is not part of the photo.
+
+    Args:
+        value: Grey value of the strip.
+        width_mm: Width of the strip.
+    """
+    truth = Placed(150, 100, 100, 80, 0, None, 3)
+    pixels = scan([truth]).copy()
+    left, right = round(25 * MM), round(175 * MM)
+    top, bottom = round(30 * MM), round(130 * MM)
+    strip = round(width_mm * MM)
+    pixels[bottom:bottom + strip, left:right + strip] = value
+    pixels[top:bottom + strip, right:right + strip] = value
+    found = PhotoDetector().detect(pixels, DPI)[0]
+    assert abs(found.width / MM - 150) < 0.5 and abs(found.height / MM - 100) < 0.5
+    assert abs(found.cx / MM - 100) < 0.3 and abs(found.cy / MM - 80) < 0.3
+
+
+def test_refiner_keeps_frames_it_cannot_improve() -> None:
+    """A frame on plain lid or on a lid-coloured border keeps its rough sides."""
+    lid = np.array([250, 128, 128], dtype=np.float32)
+    refiner = EdgeRefiner(lid, 14.0)
+    blank = np.full((400, 400, 3), 252, dtype=np.uint8)
+    rough = CropRegion(200, 200, 200, 150)
+    assert refiner.refine(blank, rough, DPI) == rough          # all lid: nothing left
+    bordered = blank.copy()
+    bordered[110:290, 90:310] = 247                             # wide lid-coloured border
+    bordered[130:270, 110:290] = 60                             # picture
+    assert refiner.refine(bordered, CropRegion(200, 200, 220, 180), DPI).width == \
+        pytest.approx(220)
 
 
 def test_detector_ignores_empty_glass_and_specks() -> None:

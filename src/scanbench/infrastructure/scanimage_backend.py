@@ -5,10 +5,13 @@ from pathlib import Path
 from scanbench.domain.command_result import CommandResult
 from scanbench.domain.device_info import DeviceInfo
 from scanbench.domain.device_options import DeviceOptions
+from scanbench.domain.scan_area import ScanArea
 from scanbench.domain.scan_error import ScanError
 from scanbench.domain.scan_settings import ScanSettings
 from scanbench.domain.scan_source import ScanSource
 from scanbench.domain.update_error import UpdateError
+from scanbench.infrastructure.scan_observer import ScanObserver
+from scanbench.infrastructure.scan_stream import ScanStream
 from scanbench.infrastructure.shell import Shell
 
 LIST_FORMAT = "%d|%v|%m|%t%n"
@@ -108,7 +111,22 @@ class ScanimageBackend:
         return DeviceOptions.parse(result.stdout)
 
     @staticmethod
-    def _arguments(device: str, settings: ScanSettings,
+    def resolution(settings: ScanSettings, options: DeviceOptions) -> int:
+        """Return the resolution actually used: the offered one nearest to the wish.
+
+        Args:
+            settings: Wanted settings.
+            options: What the device offers.
+
+        Returns:
+            Resolution in dpi.
+        """
+        if not options.resolutions:
+            return settings.resolution
+        return min(options.resolutions, key=lambda d: abs(d - settings.resolution))
+
+    @classmethod
+    def _arguments(cls, device: str, settings: ScanSettings,
                    options: DeviceOptions) -> list[str]:
         """Translate settings into ``scanimage`` arguments.
 
@@ -118,7 +136,7 @@ class ScanimageBackend:
             options: What the device offers.
 
         Returns:
-            The arguments.
+            The arguments (without format and output).
 
         Raises:
             ScanError: If the device lacks the source or mode.
@@ -128,28 +146,29 @@ class ScanimageBackend:
         if source is None or mode is None:
             raise ScanError(f"{device} does not offer {settings.source.value} / "
                             f"{settings.mode.value}")
-        args = ["-d", device, "--format=png", f"--source={source}", f"--mode={mode}"]
+        args = ["-d", device, f"--source={source}", f"--mode={mode}"]
         if options.resolutions:
-            dpi = min(options.resolutions, key=lambda d: abs(d - settings.resolution))
-            args.append(f"--resolution={dpi}")
-        width = settings.paper.width_mm
-        height = settings.paper.height_mm
-        if options.max_width_mm is not None:
-            width = min(width, options.max_width_mm)
-        if options.max_height_mm is not None:
-            height = min(height, options.max_height_mm)
-        return [*args, "-l", "0", "-t", "0", "-x", f"{width:g}", "-y", f"{height:g}"]
+            args.append(f"--resolution={cls.resolution(settings, options)}")
+        max_w = options.max_width_mm or settings.paper.width_mm
+        max_h = options.max_height_mm or settings.paper.height_mm
+        area = settings.area or ScanArea(0, 0, settings.paper.width_mm, settings.paper.height_mm)
+        area = area.clamped(max_w, max_h)
+        return [*args, "-l", f"{area.left:.1f}", "-t", f"{area.top:.1f}",
+                "-x", f"{area.width:.1f}", "-y", f"{area.height:.1f}"]
 
     def scan(self, device: str, settings: ScanSettings, options: DeviceOptions,
-             directory: Path, stem: str) -> list[Path]:
+             prefix: Path, observer: ScanObserver | None = None) -> list[Path]:
         """Scan one flatbed page or every page in the feeder.
 
         Args:
             device: SANE device name.
             settings: Wanted settings.
             options: What the device offers.
-            directory: Existing directory for the PNG files.
-            stem: File name prefix, unique within the directory.
+            prefix: Path prefix of the PNG files, e.g. ``work/scan001``; the
+                pages become ``work/scan001-001.png`` and so on. The directory
+                must exist; the prefix must be unique within it.
+            observer: Receiver of progress and the partial image; with an
+                observer the scan can be cancelled.
 
         Returns:
             The scanned pages in feeder order (front, back, front ... for
@@ -159,6 +178,17 @@ class ScanimageBackend:
             ScanError: If nothing was scanned.
         """
         args = self._arguments(device, settings, options)
+        directory, stem = prefix.parent, prefix.name
+        if observer is not None:
+            stream = ScanStream(self._shell)
+            if settings.source is ScanSource.FLATBED:
+                return [stream.page(args, directory / f"{stem}-001.png",
+                                    self.resolution(settings, options), observer)]
+            pages = stream.batch([*args, "--format=png"], directory, stem, observer)
+            if not pages:
+                raise ScanError("scanning failed: no page was scanned")
+            return pages
+        args.append("--format=png")
         if settings.source is ScanSource.FLATBED:
             target = directory / f"{stem}-001.png"
             result = self._run(*args, f"--output-file={target}")

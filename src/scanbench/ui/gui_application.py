@@ -10,12 +10,17 @@ from PySide6.QtWidgets import QApplication
 
 from scanbench import __version__
 from scanbench.app_info import APP_ID, APP_NAME
+from scanbench.application.session_handover import SessionHandover
 from scanbench.domain.version import Version
 from scanbench.infrastructure.app_paths import AppPaths
 from scanbench.ui.main_window import MainWindow
 from scanbench.ui.release_watcher import ReleaseWatcher
 from scanbench.ui.update_dialog import UpdateDialog
 from scanbench.ui.workbench import Workbench, build_workbench
+
+
+HANDOVER_DIR = "handover"
+"""Directory below the sessions directory used for release switches."""
 
 
 class GuiApplication:
@@ -93,16 +98,46 @@ class GuiApplication:
     def restart(self, _version: str) -> bool:
         """Start the active release and close this window.
 
-        The released version is shown by the new window itself.
+        The open work (scanner, tab, waiting photo scan, document pages) is
+        handed over, so the new window continues where this one stopped.
 
         Returns:
             True if the new process was started.
         """
         launcher = self._paths.release.stable_launcher
-        started = launcher.exists() and QProcess.startDetached(str(launcher), [])[0]
+        if not launcher.exists():
+            return False
+        handover = self.handover()
+        if self.workbench is not None and self.window is not None:
+            handover.save(self.workbench.handover(self.window.tabs.currentIndex()))
+        started = bool(QProcess.startDetached(str(launcher), [])[0])
         if started:
             QApplication.quit()
-        return bool(started)
+        else:
+            handover.clear()
+        return started
+
+    def handover(self) -> SessionHandover:
+        """Return the handover between this window and the next release.
+
+        Returns:
+            The handover in the sessions directory.
+        """
+        return SessionHandover(self._paths.sessions_dir / HANDOVER_DIR)
+
+    def _take_over(self, bench: Workbench, window: MainWindow) -> None:
+        """Continue the work handed over by the previous release, if any.
+
+        Args:
+            bench: The new workbench.
+            window: The new window.
+        """
+        handover = self.handover().take(Path(bench.work.name))
+        if handover is None:
+            return
+        bench.restore(handover)
+        window.tabs.setCurrentIndex(handover.tab)
+        window.show_message("Continuing the work of the previous version")
 
     def show(self) -> MainWindow:
         """Create, wire and show the main window.
@@ -115,7 +150,7 @@ class GuiApplication:
                                  header=bench.devices)
         for source in (bench.devices, bench.documents, bench.photos):
             source.message.connect(self.window.show_message)
-        self.window.unsaved = bench.unsaved
+        self.window.statusBar().insertPermanentWidget(0, bench.progress)
         bench.runner.started.connect(lambda: self._set_busy(True))
         bench.runner.finished.connect(lambda: self._set_busy(False))
         self.window.update_requested.connect(self.open_update)
@@ -124,6 +159,7 @@ class GuiApplication:
             self.watcher = ReleaseWatcher(self._paths.release.venv_link, Version.parse(__version__),
                                           parent=self.window)
             self.watcher.new_release.connect(self._on_new_release)
+        self._take_over(bench, self.window)
         self.window.show()
         bench.devices.refresh()
         return self.window
