@@ -76,6 +76,17 @@ release; N counts the deliveries of one version (1, 2, …), so a corrected
 delivery has its own name. (Up to 0.2.4 the name had no N; the update of
 0.2.3 and older does not recognise N.) It never pushes.
 
+From 0.3.0 on the archive is built with `tools/make_patch_archive.py`
+(normal user, in the repository):
+
+~~~bash
+python3 tools/make_patch_archive.py <commit of the previous delivery> <out dir> --build 1
+~~~
+
+It writes the patches of `<base>..HEAD` and a file `BASE` with the version of
+the base commit. A cumulative delivery (for a user who skipped one) is the
+same command with an older base.
+
 The maintainer turns delivered archives into releases with
 `scanbench update` (terminal) or the menu **scanbench > Update ...**. The
 steps per version are listed in the user documentation,
@@ -86,7 +97,8 @@ simplification for a single maintainer.
 
 | Design point | Implementation |
 |---|---|
-| order | archives are applied strictly in ascending version order |
+| order | archives are applied strictly in ascending version order; the list is printed first |
+| chain | `ArchiveFinder.base` reads `BASE`; `UpdateService._check_chain` requires every archive to follow its named base (the released version or the archive before it) and stops before any change otherwise; archives without `BASE` are not checked |
 | choice per version | highest delivery number N, then newest browser copy (`ArchiveFinder.newest_per_version`) |
 | corrected delivery | the SHA-256 of the applied archive is stored in the clone's git configuration (`scanbench.hotfix-X-Y-Z`); a local `hotfix/X.Y.Z` built from another archive is deleted and rebuilt, one already on `origin` stops the update |
 | tidy download folder | `ArchiveFinder.obsolete`: archives of released versions and older deliveries or copies go to the archive store at the start and the end of each run |

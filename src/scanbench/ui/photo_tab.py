@@ -8,10 +8,10 @@ from PySide6.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
 from scanbench.application.photo_session import PhotoScan, PhotoSession
 from scanbench.domain.crop_region import CropRegion
-from scanbench.infrastructure.settings_store import SettingsStore
 from scanbench.ui.photo_form import PhotoForm
 from scanbench.ui.frame_editor import FrameEditor
 from scanbench.ui.scan_tab import ScanTab
+from scanbench.ui.tab_settings import PresetBar, TabSettings
 from scanbench.ui.tab_context import TabContext
 
 START_TEXT = ("Put photos on the glass. 'Preview scan' finds them quickly; check the frames, "
@@ -28,19 +28,21 @@ class PhotoTab(ScanTab):
     starts, so every photo has been seen and confirmed.
     """
 
-    def __init__(self, context: TabContext, session: PhotoSession,
-                 settings: SettingsStore) -> None:
+    def __init__(self, context: TabContext, session: PhotoSession) -> None:
         """Build the widgets.
 
         Args:
-            context: Shared collaborators.
+            context: Shared collaborators (including the settings).
             session: Photo session.
-            settings: Persistent settings (album folder).
         """
         super().__init__(context)
         self._session = session
         self.saved: list[Path] = []
-        self.form = PhotoForm(settings, context.dialogs.choose_folder)
+        self.settings = TabSettings("photos", context.settings)
+        self.settings.message.connect(self.message.emit)
+        self.settings.changed.connect(lambda _key: self.refresh())
+        self.presets = PresetBar(self.settings, context.dialogs.ask_name)
+        self.form = PhotoForm(self.settings, context.dialogs.choose_folder)
         self.editor = FrameEditor(START_TEXT)
         self.buttons.update({key: QPushButton(text) for key, text in (
             ("preview", "Preview scan"), ("area", "Scan photos"),
@@ -50,7 +52,21 @@ class PhotoTab(ScanTab):
             "Quick scan of the whole glass at the lowest resolution to find the photos")
         self.buttons["area"].setToolTip(
             "Scan only the area around the frames of the preview, at the chosen resolution")
+        self._layout()
+        for key, action in (("preview", self._preview), ("area", self._scan_area),
+                            ("confirm", self.confirm),
+                            ("discard", self.discard), ("detect", self.detect_again),
+                            ("print", self.print_photos)):
+            self.buttons[key].clicked.connect(action)
+        self.editor.view.regions_changed.connect(self._edited)
+        context.devices.options_changed.connect(self.update_options)
+        self.settings.apply()
+        self.update_options()
+
+    def _layout(self) -> None:
+        """Arrange settings and buttons on the left, summary and editor on the right."""
         controls = QVBoxLayout()
+        controls.addWidget(self.presets)
         controls.addWidget(self.form)
         for key in ("preview", "area"):
             controls.addWidget(self.buttons[key])
@@ -60,18 +76,13 @@ class PhotoTab(ScanTab):
         controls.addStretch(1)
         side = QWidget()
         side.setLayout(controls)
-        side.setMaximumWidth(380)
+        side.setMaximumWidth(460)
+        right = QVBoxLayout()
+        right.addWidget(self.settings.summary)
+        right.addWidget(self.editor, 1)
         layout = QHBoxLayout(self)
         layout.addWidget(side)
-        layout.addWidget(self.editor, 1)
-        for key, action in (("preview", self._preview), ("area", self._scan_area),
-                            ("confirm", self.confirm),
-                            ("discard", self.discard), ("detect", self.detect_again),
-                            ("print", self.print_photos)):
-            self.buttons[key].clicked.connect(action)
-        self.editor.view.regions_changed.connect(self._edited)
-        context.devices.options_changed.connect(self.update_options)
-        self.update_options()
+        layout.addLayout(right, 1)
 
     def pending(self) -> PhotoScan | None:
         """Return the scan waiting for confirmation.
@@ -93,6 +104,7 @@ class PhotoTab(ScanTab):
     def update_options(self) -> None:
         """Adapt the settings to the selected device."""
         self.form.panel.apply(self._ctx.devices.options())
+        self.settings.apply()
         self.refresh()
 
     def refresh(self) -> None:
@@ -116,7 +128,7 @@ class PhotoTab(ScanTab):
         if selected is None:
             return
         device, options = selected
-        settings, snap = self.form.panel.settings(), self.form.snap.isChecked()
+        settings, snap = self.form.panel.settings(), self.form.snap_tolerance()
         self.run_scan("Preview scan of the whole glass ...",
                       lambda observer: self._session.preview(device, settings, options, snap,
                                                              observer),
@@ -147,7 +159,7 @@ class PhotoTab(ScanTab):
         current = self._session.current
         if current is None:
             return
-        snap = self.form.snap.isChecked()
+        snap = self.form.snap_tolerance()
         self.run_job("Detecting photos ...",
                      lambda: self._session.detect(current.path, current.dpi, snap),
                      lambda scan: self._detected_unless_cancelled(scan, current), True)
@@ -228,7 +240,7 @@ class PhotoTab(ScanTab):
         names = f"{written[0].name} ... {written[-1].name}" if written else "nothing"
         self.editor.hint.setText(f"Saved {len(written)} photo(s): {names}. Put the next "
                                  "page on the glass and scan.")
-        self.finish(f"Saved {len(written)} photo(s) in {self.form.album.text()}")
+        self.finish(f"Saved {len(written)} photo(s) in {self.form.folder()}")
 
     def discard(self) -> None:
         """Drop the scan without saving."""

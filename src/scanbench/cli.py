@@ -207,7 +207,8 @@ class Cli:
             """
             limit = args.upto
             if limit is None and not args.yes:
-                answer = self._ask(f"Apply up to version [{pending[-1].version}]: ").strip()
+                answer = self._ask(f"Apply all up to {pending[-1].version}? "
+                                   "[Enter = all, or the version to stop at]: ").strip()
                 limit = Version.parse(answer) if answer else None
             return [a for a in pending if limit is None or a.version <= limit]
         return choose

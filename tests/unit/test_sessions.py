@@ -19,7 +19,6 @@ from scanbench.infrastructure.image_store import ImageStore
 from scanbench.infrastructure.pdf_writer import PdfWriter
 from scanbench.infrastructure.photo_detector import PhotoDetector
 from scanbench.infrastructure.scan_observer import ScanObserver
-from scanbench.infrastructure.settings_store import SettingsStore
 
 FEEDER = ScanSettings(ScanSource.ADF)
 
@@ -159,8 +158,8 @@ def test_photo_detect_discard_and_broken_index(tmp_path: Path) -> None:
         tmp_path: Temporary directory of the test.
     """
     session = _photos(tmp_path, [Placed(120, 80, 80, 60)])
-    current = session.scan("dev", ScanSettings(), OPTIONS, snap=False)
-    again = session.detect(current.path, current.dpi, snap=False)
+    current = session.scan("dev", ScanSettings(), OPTIONS, snap=0.0)
+    again = session.detect(current.path, current.dpi, snap=0.0)
     assert len(again.regions) == 1
     session.discard()
     assert session.current is None
@@ -172,23 +171,3 @@ def test_photo_detect_discard_and_broken_index(tmp_path: Path) -> None:
     assert (album / f"{INDEX_FILE}.broken").exists()
     assert len(json.loads((album / INDEX_FILE).read_text(encoding="utf-8"))) == 1
     assert PhotoSession.next_number(tmp_path / "none") == 1
-
-
-def test_settings_store(tmp_path: Path) -> None:
-    """Values persist; broken files and unwritable places are tolerated.
-
-    Args:
-        tmp_path: Temporary directory of the test.
-    """
-    path = tmp_path / "cfg" / "settings.json"
-    store = SettingsStore(path)
-    assert store.get("a", "x") == "x"
-    store.set("a", "1")
-    assert SettingsStore(path).get("a") == "1"
-    path.write_text("[]", encoding="utf-8")
-    assert SettingsStore(path).get("a") == ""
-    path.write_text("{bad", encoding="utf-8")
-    assert SettingsStore(path).get("a") == ""
-    blocked = tmp_path / "file"
-    blocked.write_text("", encoding="utf-8")
-    SettingsStore(blocked / "settings.json").set("a", "1")   # no exception

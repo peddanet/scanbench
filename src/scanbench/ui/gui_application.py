@@ -165,6 +165,8 @@ class GuiApplication:
                                           parent=self.window)
             self.watcher.new_release.connect(self._on_new_release)
         self._take_over(bench, self.window)
+        for problem in bench.problems:
+            self.window.show_message(problem)          # all in the log, the last one visible
         self.window.show()
         bench.devices.restore()
         bench.devices.refresh()

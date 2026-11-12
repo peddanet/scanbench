@@ -135,6 +135,10 @@ driver as shown by `lpoptions -l`.
 **pre-push hook** -- script git runs before a push; a non-zero exit stops the
 push. [githooks](https://git-scm.com/docs/githooks)
 
+**Preset** -- named set of all settings of one tab, chosen with one click;
+stored as `presets/<tab>-<name>.toml`. Not to be confused with the Ghostscript
+`PDFSETTINGS` presets. [User guide, section 10](user/README.md#10-settings-and-presets)
+
 **Preview scan** -- quick scan of the whole glass at a low resolution (at
 least 75 dpi) that only locates the photos.
 
@@ -165,6 +169,10 @@ edge: a thin light line or an edge line; `FrameSplitter` cuts blobs there.
 **Semantic Versioning** -- `MAJOR.MINOR.PATCH` with defined meaning.
 [semver.org](https://semver.org/)
 
+**Settings layer** -- source of a setting value: built-in, default, preset or
+changed (this run); the highest layer that sets a value wins.
+[Settings](developer/settings.md)
+
 **Source checkout** -- code run from a git clone instead of an installed
 release; scanbench marks it in its version text.
 
@@ -174,6 +182,11 @@ switches its active release by replacing the link `venv` atomically.
 
 **Test backend (SANE)** -- virtual SANE scanner `test`; delivers test pictures
 without hardware. [sane-test(5)](https://manpages.debian.org/sane-test)
+
+**TOML** -- configuration file format with tables and typed values; read with
+Python's `tomllib`, written with Tomli-W. [toml.io](https://toml.io/en/v1.0.0),
+[tomllib](https://docs.python.org/3/library/tomllib.html),
+[Tomli-W](https://pypi.org/project/tomli-w/)
 
 **Virtual environment (venv)** -- self-contained Python directory with its own
 packages. [venv](https://docs.python.org/3/library/venv.html)
