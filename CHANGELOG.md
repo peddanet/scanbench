@@ -6,6 +6,12 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Update dialog (scanbench > Update ...): progress bar with step, number of
+  steps, finished quality gates and elapsed time.
+- Concept "Image correction" (`docs/concept/image-correction.md`).
+
 ## [0.2.5] - 2026-11-12
 
 ### Added
