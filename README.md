@@ -4,7 +4,7 @@ Document and photo-album scanning for Linux, built on SANE, Ghostscript and
 CUPS. Graphical interface with Qt 6; runs on GNOME, KDE Plasma, COSMIC and
 other freedesktop desktops, on Wayland and X11.
 
-> **Status: version 0.3.0, testable draft.** Documents, photo albums and
+> **Status: version 0.3.1, testable draft.** Documents, photo albums and
 > printing work. Device profiles, the duplex calibration wizard and album
 > export follow; see the [roadmap](docs/concept/README.md#roadmap).
 

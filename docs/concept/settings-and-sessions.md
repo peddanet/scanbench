@@ -76,7 +76,7 @@ It rests on three ideas:
 | separate photos lying edge to edge; draw frames by hand; merge frames | 0.2.3 (done) |
 | frame sides exactly on the photo edges, no light strip | 0.2.3 (done) |
 | frame numbers visible, previous/next photo | 0.2.3 (done) |
-| version in the status bar; open work kept across a release switch | 0.2.3 (done, minimal handover; full sessions 0.3.1) |
+| version in the status bar; open work kept across a release switch | 0.2.3 (done, minimal handover; full sessions 0.3.2) |
 
 The first four rows of the table were planned for 0.2.3, the preview scan and
 progress for 0.2.4; on request they were delivered together in 0.2.3.
@@ -485,7 +485,7 @@ Each increment is a release with all quality gates, as before.
 | Release | Content | Requirements |
 |---|---|---|
 | 0.3.0 | settings schema and stack; TOML files; generated settings form with sections, tooltips, badges, reset; summary line; presets; user-guide options table generated from the schema | S1, S2 (T), S3, S6 |
-| 0.3.1 | projects with names and renameable folders; persistent sessions: autosave, lock, open, recent list, continue on start; browse confirmed pages and photos; finish with PDF album and raw-scan question; release switch with session reopen | S4, S5, S7 |
+| 0.3.2 (was 0.3.1; 0.3.1 became a bug-fix release) | projects with names and renameable folders; persistent sessions: autosave, lock, open, recent list, continue on start; browse confirmed pages and photos; finish with PDF album and raw-scan question; release switch with session reopen | S4, S5, S7 |
 | 0.3.2 | live figures and previews: size estimates and measured values, PDF page comparison, encoder comparison, detection overlay, duplex result preview | S2 (F, P) |
 | 0.3.3 | activity log with commands and shell-script export; calibration wizard writing the device profile (turns "assumed" into "measured") (undo/redo and the preview scan came with 0.2.3) | S2, S6 |
 

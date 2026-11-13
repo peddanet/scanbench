@@ -4,6 +4,17 @@ All notable changes are documented here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning 2.0.0](https://semver.org/).
 
+## [0.3.1] - 2026-11-13
+
+### Fixed
+
+- Update dialog and `scanbench update` in a pipe: the step lines (version,
+  pull request, CI run with link, tag, install) appeared only at the end,
+  after the output of the quality gates, because Python buffers a pipe in
+  blocks; the dialog looked idle for minutes and its progress bar stood
+  still. The command line now passes every line on at once, and the dialog
+  starts it with `PYTHONUNBUFFERED=1`.
+
 ## [0.3.0] - 2026-11-12
 
 ### Added
