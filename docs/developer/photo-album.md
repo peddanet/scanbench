@@ -22,6 +22,8 @@ Back to: [Developer documentation](README.md) · [Architecture](architecture.md)
 | `ui/frame_editor.py` | `FrameEditor`, `EditorTools` | toolbar, preview, details line, hint, undo history, live image |
 | `ui/zoom_control.py` | `ZoomControl` | zoom steps, fit, 100 %, Ctrl + wheel (event filter) |
 | `ui/guide_items.py` | `GuideItem` | guide lines, movable along one axis |
+| `ui/ruler.py` | `Ruler` | centimetre rulers above and left of the view (ticks from the view transform, `scale_factor` and dpi); pressing and dragging pulls out a guide, released outside the viewport it is removed |
+| `ui/tool_icons.py` | `tool_icon`, `drawn` | tool symbols: freedesktop icon theme names (`zoom-in` …) where they exist, otherwise drawn in the palette's text colour |
 | `ui/frame_values_dialog.py` | `FrameValuesDialog` | exact width, height, skew, turn |
 | `ui/region_view.py` | `RegionView` | drawing, selection, grip drags, drawing new frames, keyboard |
 | `ui/frame_items.py` | `RegionItem`, `HandleItem` | graphics items of frames, number badges and grips |

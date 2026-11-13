@@ -72,7 +72,12 @@ release and hotfix branches.
 grips resize, the orange grip above the top edge rotates the frame.
 
 **Guide line** -- dashed helper line in the frame editor to align frames;
-movable along one axis, removed by dragging it out of the scan.
+pulled out of a ruler or added with a button, movable along one axis,
+removed by dragging it out of the scan.
+
+**Icon theme** -- set of symbols of the desktop; programs ask for them by
+standard names such as `zoom-in`.
+[freedesktop Icon Naming Specification](https://specifications.freedesktop.org/icon-naming-spec/latest/)
 
 **Handover** -- the open work (scanner, tab, waiting photo scan, document
 pages) written by a window before a release switch and taken over by the new
