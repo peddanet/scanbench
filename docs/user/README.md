@@ -432,6 +432,15 @@ back into `develop` (CI 3/3); finally the newest version is installed and the
 archives are moved to `<installation>/releases`. A failed run can be started
 again; it continues where it stopped.
 
+**Duration:** the local gates take about one minute per version; most of the
+time is spent waiting for the three GitHub Actions runs of each version
+(typically 8 to 10 minutes per version in total). Three waiting versions
+therefore take about half an hour. While a CI run is awaited, the log shows
+its line, e.g. `CI 1/3: pull request into main -> https://github.com/…`; the
+link opens the run in the browser. (Up to 0.3.0 these step lines only
+appeared at the end, after the output of the gates, so the dialog looked idle;
+fixed in 0.3.1.)
+
 | Situation | What the update does by itself |
 |---|---|
 | several files for one version | from 0.2.5 on, deliveries are numbered: `scanbench-X.Y.Z-patch-N.tar.gz`; the highest N wins, then the most recently saved browser copy (`… (1).tar.gz`); older names without N count as N = 0 |

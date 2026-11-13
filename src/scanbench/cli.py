@@ -1,6 +1,7 @@
 """Command line entry point; also the composition root of the application."""
 
 import argparse
+import io
 import os
 import sys
 from collections.abc import Callable, Sequence
@@ -260,6 +261,18 @@ class Cli:
         return self._gui(self._version.text(), self._paths, is_release)
 
 
+def line_buffered() -> None:
+    """Pass every printed line on at once, also into a pipe.
+
+    Python buffers ``stdout`` in blocks when it is not a terminal, e.g. in the
+    update dialog of the GUI. The output of child processes (the quality
+    gates) then overtook the program's own step lines, which only appeared at
+    the end; the dialog looked idle while GitHub's checks were awaited.
+    """
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Wire the real collaborators and run the command line.
 
@@ -269,6 +282,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     Returns:
         Exit status.
     """
+    line_buffered()
     paths = AppPaths(os.environ, Path.home())
     version = VersionInfo(Path(scanbench.__file__).resolve().parent)
     cli = Cli(paths, version, _run_gui)
