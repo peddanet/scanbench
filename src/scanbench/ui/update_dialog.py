@@ -2,7 +2,7 @@
 
 import time
 
-from PySide6.QtCore import QProcess, Signal
+from PySide6.QtCore import QProcess, QProcessEnvironment, Signal
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QLabel, QPlainTextEdit,
                                QProgressBar, QVBoxLayout, QWidget)
@@ -46,6 +46,9 @@ class UpdateDialog(QDialog):
             layout.addWidget(widget)
         self.process = QProcess(self)
         self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        environment = QProcessEnvironment.systemEnvironment()
+        environment.insert("PYTHONUNBUFFERED", "1")     # every line at once, in order
+        self.process.setProcessEnvironment(environment)
         self.process.readyReadStandardOutput.connect(self._read)
         self.process.finished.connect(self._finished)
         self._command = (program, args)
