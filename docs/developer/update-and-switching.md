@@ -47,9 +47,16 @@ workflows are in the [release process](release-process.md).
 | `infrastructure/github_cli.py` | `GitHubCli` | pull requests, CI runs, repository settings through `gh` (Adapter) |
 | `infrastructure/dev_environment.py` | `DevEnvironment` | development venv of the clone, gates |
 | `infrastructure/release_installer.py` | `ReleaseInstaller` | run `install.sh`, read the active release |
-| `ui/update_dialog.py`, `ui/update_progress.py` | `UpdateDialog`, `UpdateProgress` | runs `scanbench update --yes` as child process, shows its output and a progress bar read from the `-- [n]` step lines, the `pending:` line and the gate lines |
+| `ui/update_dialog.py`, `ui/update_progress.py` | `UpdateDialog`, `UpdateProgress` | runs `scanbench update --yes` as child process (with `PYTHONUNBUFFERED=1`), shows its output and a progress bar read from the `-- [n]` step lines, the `pending:` line and the gate lines |
 | `infrastructure/archive_finder.py` | `ArchiveFinder` | newest delivery per version, pending and obsolete archives, SHA-256 |
 | `infrastructure/update_lock.py` | `UpdateLock` | exclusive `flock` against parallel updates |
+
+Output order: `cli.main` switches `stdout` to line buffering
+(`line_buffered`). Without it Python buffers a pipe in blocks, and the gate
+output of the child process `tools/check.sh` overtook the program's own step
+lines, which only appeared at exit (0.2.x to 0.3.0). Tests run with
+`PYTHONUNBUFFERED` unset where the order matters
+(`test_line_buffered_keeps_the_order_in_a_pipe`).
 
 ## Update and live switch
 

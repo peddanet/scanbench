@@ -1,5 +1,7 @@
 """Tests for the command line."""
 
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -270,3 +272,14 @@ def test_printers_command(tmp_path: Path) -> None:
     broken = FakeShell(script={("lpstat",): [failed("no cupsd")]})
     assert _scanning_cli(tmp_path, rec, broken).run(["printers"]) == 1
     assert "no cupsd" in rec.lines[-1]
+
+
+def test_line_buffered_keeps_the_order_in_a_pipe() -> None:
+    """The CLI's own lines are not overtaken by the output of child processes."""
+    code = ("import subprocess; from scanbench.cli import line_buffered; line_buffered(); "
+            "print('-- [1] step'); subprocess.run(['echo', '== gate'], check=True); "
+            "print('-- [2] step')")
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONUNBUFFERED"}
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                          env=env, check=True)
+    assert done.stdout.splitlines() == ["-- [1] step", "== gate", "-- [2] step"]
