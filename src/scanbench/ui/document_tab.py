@@ -176,9 +176,9 @@ class DocumentTab(ScanTab):
         target = self._ctx.dialogs.save_as(self, Path.home() / "scan.pdf")
         if target is None:
             return
-        quality = self.quality.currentData()
+        quality, paper = self.quality.currentData(), self.panel.settings().paper
         self.run_job(f"Saving {target.name} ({quality.label}) ...",
-                     lambda: self._session.save_pdf(target, quality), self._saved)
+                     lambda: self._session.save_pdf(target, quality, paper), self._saved)
 
     def _saved(self, target: Path) -> None:
         """Report the saved file.
@@ -194,7 +194,7 @@ class DocumentTab(ScanTab):
         job = self._ctx.dialogs.ask_print(self, "Print document", False)
         if job is None:
             return
-        cups, session = self._ctx.cups, self._session
+        cups, session, paper = self._ctx.cups, self._session, self.panel.settings().paper
 
         def work() -> str:
             """Write a lossless PDF and send it to CUPS.
@@ -203,7 +203,7 @@ class DocumentTab(ScanTab):
                 The job ID.
             """
             with tempfile.TemporaryDirectory(prefix="scanbench-print-") as tmp:
-                pdf = session.save_pdf(Path(tmp) / "document.pdf", PdfQuality.ORIGINAL)
+                pdf = session.save_pdf(Path(tmp) / "document.pdf", PdfQuality.ORIGINAL, paper)
                 return cups.print_files(job.printer, [pdf], job.copies, job.options)
         self.run_job(f"Printing on {job.printer} ...", work,
                      lambda job_id: self.finish(f"Print job {job_id} sent"))

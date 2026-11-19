@@ -379,6 +379,15 @@ names: `4x6.Borderless` becomes "Photo 10 x 15 cm (4 x 6 in), borderless",
 long edge (book)". Photo sizes (9 x 13, 10 x 15, 13 x 18, 20 x 25 cm,
 postcard) are listed below the other sizes, after a separator.
 
+**Two-sided printing of documents:** every page of the PDF has exactly the
+paper size chosen for scanning (e.g. A4); the scan is fitted into it without
+loss. The choice "2-Sided Printing" is always sent to the printer, also as the
+standard `sides` value. (Up to 0.3.2 the pages kept the scanned size, which
+differs slightly between front and back sides of a duplex scan, and the
+choice was only sent when it differed from the printer's default; the MX925
+with the Gutenprint driver then printed every back side on a new sheet,
+turned by 180°.)
+
 A CD/DVD tray is only offered if the installed driver supports it; the
 driverless IPP Everywhere queue often has fewer options than the
 manufacturer's driver. If the driver has no disc tray, the dialog says so

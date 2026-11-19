@@ -6,6 +6,7 @@ from pathlib import Path
 
 from scanbench.domain.device_options import DeviceOptions
 from scanbench.domain.duplex_order import DuplexOrder
+from scanbench.domain.paper_format import PaperFormat
 from scanbench.domain.pdf_quality import PdfQuality
 from scanbench.domain.scan_error import ScanError
 from scanbench.domain.scan_settings import ScanSettings
@@ -145,15 +146,17 @@ class DocumentSession:
                                         p.quarter_turns, p.dpi)
                 for n, p in enumerate(self.pages, start=1)]
 
-    def save_pdf(self, target: Path, quality: PdfQuality) -> Path:
+    def save_pdf(self, target: Path, quality: PdfQuality,
+                 paper: PaperFormat | None = None) -> Path:
         """Save all pages as one PDF.
 
         Args:
             target: PDF file to write.
             quality: Wanted reduction.
+            paper: Paper format of the pages (the scanned size if None).
 
         Returns:
             The written file.
         """
         with tempfile.TemporaryDirectory(prefix="scanbench-pages-") as tmp:
-            return self._pdf.write(self.render(Path(tmp)), target, quality)
+            return self._pdf.write(self.render(Path(tmp)), target, quality, paper)
