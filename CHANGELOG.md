@@ -15,6 +15,12 @@ All notable changes are documented here. The format follows
   size, which differs between fronts and backs), and the two-sided choice is
   always sent, also as IPP `sides`. Saved PDFs get the paper format, too.
 
+### Added
+
+- Documents: "Paper white" (section Output, on by default) maps the grey or
+  cream tone of the scanned paper to pure white when saving or printing, so
+  prints show no tinted area with a frame at the printer's margin.
+
 ## [0.3.2] - 2026-11-19
 
 ### Added

@@ -379,6 +379,15 @@ names: `4x6.Borderless` becomes "Photo 10 x 15 cm (4 x 6 in), borderless",
 long edge (book)". Photo sizes (9 x 13, 10 x 15, 13 x 18, 20 x 25 cm,
 postcard) are listed below the other sizes, after a separator.
 
+**Paper white (documents, on by default):** the paper of a scan is never
+pure white but light grey or cream; printed, that tone forms a faint area that
+ends at the printer's margin like a frame. With **Output > Paper white** each
+page is corrected when it is saved or printed: the paper tone (the brightness
+reached by 90 % of the page) becomes pure white, every colour channel is scaled
+accordingly, which also removes a colour cast. Pages whose "paper" is darker
+than a medium grey (photos, dark pages) and line art stay unchanged. Switch it
+off if very faint pencil marks must be kept.
+
 **Two-sided printing of documents:** every page of the PDF has exactly the
 paper size chosen for scanning (e.g. A4); the scan is fitted into it without
 loss. The choice "2-Sided Printing" is always sent to the printer, also as the
@@ -571,6 +580,7 @@ All options (generated from the program, `tools/settings_table.py`):
 | documents | Resolution | Basic | as offered by the scanner (dpi) | 300 dpi | `documents.resolution` | Dots per inch. 300 dpi is enough for text; doubling it quadruples pixels, memory and scan time. |
 | documents | Paper | Basic | A4 / A5 / A6 / Letter | A4 | `documents.paper` | Scanned area. The flatbed is at most 215.9 mm wide. |
 | documents | PDF size | Basic | Original (lossless) / Screen (72 dpi) / E-book (150 dpi) / Printer (300 dpi) / Prepress (300 dpi, best) | E-book (150 dpi) | `documents.pdf_size` | Reduction of the saved PDF with Ghostscript, always from the lossless pages. E-book is small and readable; Original keeps every pixel. |
+| documents | Paper white | Output | on / off | on | `documents.paper_white` | Make the paper of each page pure white: the grey or cream tone of the scanned paper disappears, prints show no frame at the margin and use less ink. Very faint pencil lines may get lighter. |
 | photos | Colour | Basic | Color / Gray / Black and white (as offered by the scanner) | Color | `photos.colour` | Colour or grey for the photos. |
 | photos | Resolution | Basic | as offered by the scanner (dpi) | 600 dpi | `photos.resolution` | Dots per inch of the photo scan. 600 dpi keeps the detail of paper prints; 1200 dpi quadruples size and time, mostly without gain. |
 | photos | Format | Basic | PNG (lossless) / JPEG (smaller) | PNG (lossless) | `photos.format` | PNG keeps every pixel; JPEG files are about five times smaller. |
