@@ -6,6 +6,7 @@ from pathlib import Path
 
 import img2pdf
 
+from scanbench.domain.paper_format import PaperFormat
 from scanbench.domain.pdf_quality import PdfQuality
 from scanbench.domain.scan_error import ScanError
 from scanbench.domain.update_error import UpdateError
@@ -51,13 +52,18 @@ class PdfWriter:
         if not result.ok or not target.exists():
             raise ScanError(f"Ghostscript failed: {result.stderr.strip()[-200:]}")
 
-    def write(self, pages: list[Path], target: Path, quality: PdfQuality) -> Path:
+    def write(self, pages: list[Path], target: Path, quality: PdfQuality,
+              paper: PaperFormat | None = None) -> Path:
         """Write the pages in order into one PDF.
 
         Args:
             pages: Page images with their resolution stored in the file.
             target: PDF file to write; replaced if it exists.
             quality: Wanted reduction.
+            paper: Paper format of every page; the image is fitted into it
+                (turned pages get the turned format). None keeps the scanned
+                size, which is rarely a standard size: a scan of the full glass
+                is 215.9 mm wide. Printer drivers then may not print two-sided.
 
         Returns:
             The target.
@@ -70,7 +76,11 @@ class PdfWriter:
         with tempfile.TemporaryDirectory(prefix="scanbench-pdf-") as tmp:
             original = Path(tmp) / "original.pdf"
             try:
-                original.write_bytes(img2pdf.convert([str(p) for p in pages]))
+                layout = img2pdf.default_layout_fun if paper is None else img2pdf.get_layout_fun(
+                    (img2pdf.mm_to_pt(paper.width_mm), img2pdf.mm_to_pt(paper.height_mm)),
+                    fit=img2pdf.FitMode.into, auto_orient=True)
+                original.write_bytes(img2pdf.convert([str(p) for p in pages],
+                                                     layout_fun=layout))
             except (OSError, ValueError, img2pdf.ImageOpenError, img2pdf.AlphaChannelError,
                     img2pdf.UnsupportedColorspaceError) as exc:
                 raise ScanError(f"cannot build the PDF: {exc}") from exc
