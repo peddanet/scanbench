@@ -70,6 +70,7 @@ class DocumentTab(ScanTab):
         output = QFormLayout()
         output.addRow("PDF size:", self.settings.row("documents.pdf_size", self.quality))
         controls.addLayout(output)
+        controls.addWidget(self.settings.sections())
         controls.addWidget(self.buttons["save"])
         controls.addWidget(self.buttons["print"])
         controls.addStretch(1)
@@ -177,8 +178,9 @@ class DocumentTab(ScanTab):
         if target is None:
             return
         quality, paper = self.quality.currentData(), self.panel.settings().paper
+        white = bool(self.settings.value("documents.paper_white"))
         self.run_job(f"Saving {target.name} ({quality.label}) ...",
-                     lambda: self._session.save_pdf(target, quality, paper), self._saved)
+                     lambda: self._session.save_pdf(target, quality, paper, white), self._saved)
 
     def _saved(self, target: Path) -> None:
         """Report the saved file.
@@ -195,6 +197,7 @@ class DocumentTab(ScanTab):
         if job is None:
             return
         cups, session, paper = self._ctx.cups, self._session, self.panel.settings().paper
+        white = bool(self.settings.value("documents.paper_white"))
 
         def work() -> str:
             """Write a lossless PDF and send it to CUPS.
@@ -203,7 +206,8 @@ class DocumentTab(ScanTab):
                 The job ID.
             """
             with tempfile.TemporaryDirectory(prefix="scanbench-print-") as tmp:
-                pdf = session.save_pdf(Path(tmp) / "document.pdf", PdfQuality.ORIGINAL, paper)
+                pdf = session.save_pdf(Path(tmp) / "document.pdf", PdfQuality.ORIGINAL, paper,
+                                       white)
                 return cups.print_files(job.printer, [pdf], job.copies, job.options)
         self.run_job(f"Printing on {job.printer} ...", work,
                      lambda job_id: self.finish(f"Print job {job_id} sent"))
