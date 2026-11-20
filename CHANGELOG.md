@@ -4,6 +4,23 @@ All notable changes are documented here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning 2.0.0](https://semver.org/).
 
+## [0.3.3] - 2026-11-19
+
+### Fixed
+
+- Two-sided printing of documents: every back page came out on a new sheet,
+  turned by 180° (MX925, Gutenprint driver), while other programs printed the
+  same printer two-sided. The PDF pages now have exactly the chosen paper
+  format (the scan is fitted in losslessly; before, each page kept its scanned
+  size, which differs between fronts and backs), and the two-sided choice is
+  always sent, also as IPP `sides`. Saved PDFs get the paper format, too.
+
+### Added
+
+- Documents: "Paper white" (section Output, on by default) maps the grey or
+  cream tone of the scanned paper to pure white when saving or printing, so
+  prints show no tinted area with a frame at the printer's margin.
+
 ## [0.3.2] - 2026-11-19
 
 ### Added

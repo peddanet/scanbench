@@ -28,6 +28,14 @@ Documents are printed from a lossless temporary PDF; `lp` hands the data to
 the scheduler before it returns, so the temporary file may be removed
 afterwards. Photos are printed as image files.
 
+Two-sided printing (0.3.3): `PdfWriter.write(..., paper)` places every page on
+exactly the scan's paper format (`img2pdf.get_layout_fun(..., fit=FitMode.into,
+auto_orient=True)`); pages of slightly different size (fronts and backs of a
+duplex scan) made the MX925 with Gutenprint print one page per sheet with
+every back page turned. `PrintDialog.job` always sends the PPD `Duplex` choice
+and the IPP `sides` value (`SIDES`), not only when it differs from the
+default.
+
 ## Why the command line clients
 
 They exist on every desktop installation (`cups-client`), need no compiled

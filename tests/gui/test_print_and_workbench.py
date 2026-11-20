@@ -278,3 +278,25 @@ def test_device_bar_reports_an_unreachable_device(tmp_path: Path, qtbot: QtBot) 
     device_bar.restore()
     idle(qtbot, runner)
     assert messages[-1] == "Scanner not reachable: a:1 is off" and device_bar.options() is None
+
+
+def test_print_dialog_always_sends_the_two_sided_choice(qtbot: QtBot) -> None:
+    """Duplex goes out explicitly, also as IPP sides, even when it is the default.
+
+    Relying on the queue default printed every second page on a new sheet,
+    turned by 180 degrees (Gutenprint, MX925, 2026-11).
+
+    Args:
+        qtbot: pytest-qt helper.
+    """
+    script = dict(CUPS_SCRIPT)
+    script[("lpoptions",)] = [ok("PageSize/Media Size: *A4 Letter\n"
+                                 "Duplex/2-Sided Printing: *None DuplexNoTumble DuplexTumble\n")]
+    dialog = PrintDialog(CupsClient(FakeShell(script=script)), "Print", photos=False)
+    qtbot.addWidget(dialog)
+    assert dialog.job().options == {"Duplex": "None", "sides": "one-sided"}
+    duplex = dialog.options.choices["Duplex"]
+    duplex.setCurrentIndex(duplex.findData("DuplexNoTumble"))
+    assert dialog.job().options["sides"] == "two-sided-long-edge"
+    duplex.setCurrentIndex(duplex.findData("DuplexTumble"))
+    assert dialog.job().options["sides"] == "two-sided-short-edge"

@@ -9,6 +9,11 @@ from scanbench.infrastructure.cups_client import CupsClient
 from scanbench.ui.option_form import OptionForm
 
 
+SIDES = {"None": "one-sided", "DuplexNoTumble": "two-sided-long-edge",
+         "DuplexTumble": "two-sided-short-edge"}
+"""IPP ``sides`` value per PPD ``Duplex`` choice."""
+
+
 class PrintDialog(QDialog):
     """Show every CUPS printer and the options its driver offers.
 
@@ -104,9 +109,16 @@ class PrintDialog(QDialog):
         """Return the choices as a print job.
 
         Returns:
-            Printer, copies and the options that differ from the defaults.
+            Printer, copies and the options that differ from the defaults;
+            the two-sided choice is always included, also as IPP ``sides``.
         """
         options = self.options.changed()
+        duplex = self.options.choices.get("Duplex")
+        if duplex is not None and duplex.currentData():
+            # always explicit: the queue default alone left Gutenprint printing
+            # one-sided with every back page turned (MX925, 2026-11)
+            options["Duplex"] = str(duplex.currentData())
+            options["sides"] = SIDES.get(options["Duplex"], "one-sided")
         if self.fit.isChecked():
             options["fit-to-page"] = ""
         return PrintJob(str(self.printer.currentData() or ""), self.copies.value(), options)
