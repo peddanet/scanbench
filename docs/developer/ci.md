@@ -14,7 +14,7 @@ flowchart LR
   PR --> G["job gates: Python 3.12, one step per gate"]
   G -->|green and up to date| M[merge]
   M --> T[tag vX.Y.Z on main]
-  T --> GM["job gates-matrix: 3.12, 3.13, 3.14"]
+  T --> GM["job gates-matrix: 3.12, 3.14"]
   GM --> RC["job release-check: tag on main, tag = version"]
 ~~~
 
@@ -26,8 +26,10 @@ flowchart LR
 | manual start | `gates` | branch without a pull request: `gh workflow run quality-gates --ref BRANCH` |
 
 Why one Python version per pull request: the lowest supported version (3.12)
-catches code that uses newer language features; the full matrix runs once per
-release. Matrix jobs run in parallel on GitHub-hosted runners (up to 20
+catches code that uses newer language features; the matrix (3.12 and 3.14,
+the oldest and the newest supported version) runs once per release. Python
+3.13 is supported but tested locally only (`tools/check.sh` in a 3.13
+environment), by decision of 2026-11-19, to keep the GitHub runs short. Matrix jobs run in parallel on GitHub-hosted runners (up to 20
 concurrent jobs on the Free plan), so the tag run takes about as long as its
 slowest job.
 

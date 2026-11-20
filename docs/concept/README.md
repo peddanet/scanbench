@@ -37,7 +37,7 @@ Requested for later releases (not yet scheduled to a milestone):
 | align a frame to a drawn line | draw along an edge of the photo; the frame takes that angle (0.2.1 has free rotation with a grip and 0.1° keys) |
 | PDF collage assistant | several photos and texts on pages, exported as PDF |
 | duplex calibration wizard, device profiles | from M1/M2 |
-| projects with names and renameable folders, sessions | [settings and sessions, 5.8](settings-and-sessions.md#58-projects), planned for 0.3.2 |
+| projects with names and renameable folders, sessions | [settings and sessions, 5.8](settings-and-sessions.md#58-projects), planned for 0.4.0 |
 | image correction (flat, colourless scans) | [image correction](image-correction.md), proposed for 0.2.6 |
 
 ## Open decisions
