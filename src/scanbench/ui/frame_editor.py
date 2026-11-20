@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import QGraphicsView, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGraphicsView, QGridLayout, QLabel, QVBoxLayout, QWidget
 
 from scanbench.domain import frame_edit
 from scanbench.domain.crop_region import CropRegion
@@ -17,6 +17,8 @@ from scanbench.ui.guide_items import add_guide, remove_guides
 from scanbench.ui.qt_images import to_qimage
 from scanbench.ui.region_menus import RegionMenus
 from scanbench.ui.region_view import RegionView
+from scanbench.ui.ruler import Ruler
+from scanbench.ui.tool_icons import tool_icon
 from scanbench.ui.zoom_control import ZoomControl
 
 NO_SELECTION = "Click a frame to see its size, skew and orientation."
@@ -30,8 +32,10 @@ TOOLS = (
     ("fit", "Fit", "Ctrl+0", "Show the whole scan"),
     ("actual", "100 %", "Ctrl+1", "One scan pixel per screen pixel"),
     ("draw", "Draw frame", "D", "Drag on the scan to draw a new frame (Esc to stop)"),
-    ("h_guide", "Horizontal guide", "H", "Add a horizontal guide line; drag it into place"),
-    ("v_guide", "Vertical guide", "V", "Add a vertical guide line; drag it into place"),
+    ("h_guide", "Horizontal guide", "H", "Add a horizontal guide line; drag it into place "
+     "(or drag one out of the top ruler)"),
+    ("v_guide", "Vertical guide", "V", "Add a vertical guide line; drag it into place "
+     "(or drag one out of the left ruler)"),
     ("no_guides", "Remove guides", None, "Remove all guide lines"),
     ("values", "Exact values ...", "E", "Width, height, skew and turn of the selected frame"),
     ("previous", "Previous photo", "PgUp", "Select the frame with the next lower number"),
@@ -77,10 +81,15 @@ class FrameEditor(QWidget):
         self._replaying = False
         self.tools = EditorTools(FlowBar(), {}, ZoomControl(self.view))
         self._build_tools()
+        canvas = QGridLayout()
+        canvas.setSpacing(0)
+        canvas.addWidget(Ruler(self.view, True), 0, 1)
+        canvas.addWidget(Ruler(self.view, False), 1, 0)
+        canvas.addWidget(self.view, 1, 1)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.tools.toolbar)
-        layout.addWidget(self.view, 1)
+        layout.addLayout(canvas, 1)
         layout.addWidget(self.details)
         layout.addWidget(self.hint)
         self.view.frame_selected.connect(self.describe)
@@ -98,7 +107,7 @@ class FrameEditor(QWidget):
             "values": self._edit_values, "previous": lambda: self.select_photo(-1),
             "next": lambda: self.select_photo(1)}
         for key, text, shortcut, tip in TOOLS:
-            action = QAction(text, self)
+            action = QAction(tool_icon(key), text, self)
             action.setToolTip(f"{tip} ({QKeySequence(shortcut).toString()})" if shortcut
                               else tip)
             if shortcut is not None:
