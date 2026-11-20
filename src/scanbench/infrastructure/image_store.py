@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from scanbench.domain.image_format import ImageEncoding, ImageFormat
+from scanbench.domain.paper_white import to_paper_white
 from scanbench.domain.scan_error import ScanError
 
 JPEG_QUALITY = 92
@@ -88,6 +89,26 @@ class ImageStore:
             image = image.convert("RGB")
         image.save(target, format="PNG", dpi=(dpi, dpi))
         return target
+
+    def whiten(self, path: Path) -> Path:
+        """Map the paper tone of a page file to pure white, in place.
+
+        Line art (1 bit) is already black and white and stays as it is.
+
+        Args:
+            path: PNG page written by ``turned_copy``.
+
+        Returns:
+            The path.
+        """
+        image = self._open(path)
+        if image.mode == "1":
+            return path
+        dpi = image.info.get("dpi", (300, 300))
+        corrected = to_paper_white(np.asarray(image))
+        Image.fromarray(corrected).save(path, format="PNG",
+                                        dpi=(round(dpi[0]), round(dpi[1])))
+        return path
 
     @staticmethod
     def save(pixels: NDArray[np.uint8], target: Path,
