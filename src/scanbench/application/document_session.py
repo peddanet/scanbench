@@ -6,6 +6,7 @@ from pathlib import Path
 
 from scanbench.domain.device_options import DeviceOptions
 from scanbench.domain.duplex_order import DuplexOrder
+from scanbench.domain.paper_format import PaperFormat
 from scanbench.domain.pdf_quality import PdfQuality
 from scanbench.domain.scan_error import ScanError
 from scanbench.domain.scan_settings import ScanSettings
@@ -132,28 +133,34 @@ class DocumentSession:
         self.pages = rest + [replace(p, batch=batches[-2])
                              for p in DuplexOrder.FRONTS_THEN_BACKS.arrange(fronts + backs)]
 
-    def render(self, directory: Path) -> list[Path]:
+    def render(self, directory: Path, paper_white: bool = False) -> list[Path]:
         """Write the pages with their rotation applied.
 
         Args:
             directory: Existing output directory.
+            paper_white: Map the paper tone of each page to pure white.
 
         Returns:
             One PNG file per page, in page order.
         """
-        return [self._store.turned_copy(p.path, directory / f"page-{n:04d}.png",
-                                        p.quarter_turns, p.dpi)
-                for n, p in enumerate(self.pages, start=1)]
+        files = [self._store.turned_copy(p.path, directory / f"page-{n:04d}.png",
+                                         p.quarter_turns, p.dpi)
+                 for n, p in enumerate(self.pages, start=1)]
+        return [self._store.whiten(f) for f in files] if paper_white else files
 
-    def save_pdf(self, target: Path, quality: PdfQuality) -> Path:
+    def save_pdf(self, target: Path, quality: PdfQuality,
+                 paper: PaperFormat | None = None, paper_white: bool = False) -> Path:
         """Save all pages as one PDF.
 
         Args:
             target: PDF file to write.
             quality: Wanted reduction.
+            paper: Paper format of the pages (the scanned size if None).
+            paper_white: Map the paper tone of each page to pure white.
 
         Returns:
             The written file.
         """
         with tempfile.TemporaryDirectory(prefix="scanbench-pages-") as tmp:
-            return self._pdf.write(self.render(Path(tmp)), target, quality)
+            return self._pdf.write(self.render(Path(tmp), paper_white), target, quality,
+                                   paper)

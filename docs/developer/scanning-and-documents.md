@@ -15,6 +15,7 @@ Back to: [Developer documentation](README.md) · [Architecture](architecture.md)
 | `domain/pdf_quality.py` | `PdfQuality` | PDF size level and Ghostscript preset |
 | `domain/scan_error.py` | `ScanError` | user-facing error |
 | `domain/scan_progress.py` | `ScanProgress` | page, pages, percent, elapsed and remaining time, status text |
+| `domain/paper_white.py` | `paper_tone`, `to_paper_white` | paper tone = 90th brightness percentile per channel; scales it to 255, values from 248 up become 255; pages with a tone below 140 are left alone. Applied by `ImageStore.whiten` in `DocumentSession.render(..., paper_white=True)` when saving or printing |
 | `infrastructure/device_cache.py` | `DeviceCache`, `KnownDevices` | devices, options and selection of the last run (JSON in the cache directory; broken or foreign files count as empty) |
 | `infrastructure/scanimage_backend.py` | `ScanimageBackend` | devices, options, flatbed and batch scans (Adapter) |
 | `infrastructure/scan_stream.py` | `ScanStream`, `ProgressParser` | streamed scans with progress, live image and cancel |

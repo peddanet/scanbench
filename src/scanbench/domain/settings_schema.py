@@ -147,6 +147,10 @@ DEFINITIONS = (
                       "Reduction of the saved PDF with Ghostscript, always from the "
                       "lossless pages. E-book is small and readable; Original keeps every "
                       "pixel.", tuple((q.label, q.name) for q in PdfQuality)),
+    SettingDefinition("documents.paper_white", "Paper white", "Output", True,
+                      "Make the paper of each page pure white: the grey or cream tone of "
+                      "the scanned paper disappears, prints show no frame at the margin and "
+                      "use less ink. Very faint pencil lines may get lighter."),
     SettingDefinition("photos.colour", "Colour", BASIC, ColorMode.COLOR.name,
                       "Colour or grey for the photos.", _named(list(ColorMode)), device=True),
     SettingDefinition("photos.resolution", "Resolution", BASIC, 600,
