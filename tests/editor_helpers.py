@@ -31,6 +31,7 @@ def editor_with(tmp_path: Path, qtbot: QtBot, frames: list[Placed] | None = None
     editor = FrameEditor("hint")
     qtbot.addWidget(editor)
     editor.resize(700, 900)
+    editor.move(137, 91)           # not at the screen origin, as on a real desktop
     editor.show()
     path = write_png(tmp_path / "page.png", scan(frames), DPI)
     editor.show_scan(path, DPI, [f.region() for f in frames])
@@ -61,7 +62,11 @@ def mouse(view: RegionView, kind: QEvent.Type, scene: QPointF,
         modifiers: Keyboard modifiers.
     """
     local = QPointF(view.mapFromScene(scene))
-    event = QMouseEvent(kind, local, local, Qt.MouseButton.LeftButton,
+    # The scene finds the item under the mouse from the *screen* position; it
+    # must be the real one, or the result depends on where the window lies
+    # (0.3.2 failed on GitHub only, after the rulers moved the view).
+    screen = QPointF(view.viewport().mapToGlobal(local.toPoint()))
+    event = QMouseEvent(kind, local, screen, Qt.MouseButton.LeftButton,
                         Qt.MouseButton.LeftButton, modifiers)
     {QEvent.Type.MouseButtonPress: view.mousePressEvent,
      QEvent.Type.MouseMove: view.mouseMoveEvent,
