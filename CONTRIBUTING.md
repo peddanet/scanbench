@@ -30,7 +30,7 @@ never in the repository; each has a sample with invented content in
 | Path on the machine | Written by | Sample in the repository | Needed for |
 |---|---|---|---|
 | `~/.config/scanbench/privacy/denylist.txt` | you (mode 600) | `examples/privacy/denylist.sample.txt` | gate `[0] privacy`: terms that must never appear |
-| `~/.config/scanbench/privacy/allowlist.txt` | you (mode 600) | `examples/privacy/allowlist.sample.txt` | gate `[0] privacy`: accepted non-no-reply identities |
+| `~/.config/scanbench/privacy/allowlist.txt` | you (mode 600) | `examples/privacy/allowlist.sample.txt` | gate `[0] privacy`: allowed phrases, accepted non-no-reply addresses |
 | `~/.config/scanbench/settings.toml` | scanbench (Settings, "Save as default") | `examples/settings.toml.sample` | saved defaults of all options |
 | `~/.config/scanbench/presets/<tab>-<name>.toml` | scanbench ("Save as preset") | `examples/presets/photos-album-600-dpi-png.toml.sample` | named presets per tab |
 | `~/.cache/scanbench/devices.json` | scanbench | none (rebuilt on the next start) | scanners and their options |

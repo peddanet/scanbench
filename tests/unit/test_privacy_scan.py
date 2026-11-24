@@ -1,67 +1,180 @@
-"""Tests of gate 0, tools/privacy_scan.py: lists, terms and identities."""
+"""Tests of gate 0, tools/privacy_scan.py (rules as in mediatools)."""
 
+import shutil
 import subprocess
 from pathlib import Path
 
 import privacy_scan
 import pytest
 
-NO_REPLY = "2825623+someone@users.noreply.github.com"
-"""A per-user no-reply address."""
+NO_REPLY = "1+t@users.noreply.github.com"
+"""A per-user no-reply address with the login ``t``."""
 
 
-def _git(repo: Path, *args: str, mail: str = NO_REPLY) -> None:
+def _git(repo: Path, *args: str, name: str = "t", mail: str = NO_REPLY) -> None:
     """Run git in a test repository with a fixed identity.
 
     Args:
         repo: Repository directory.
         *args: Arguments after ``git``.
+        name: Author, committer and tagger name.
         mail: Author, committer and tagger address.
     """
-    env = {"GIT_AUTHOR_NAME": "someone", "GIT_AUTHOR_EMAIL": mail,
-           "GIT_COMMITTER_NAME": "someone", "GIT_COMMITTER_EMAIL": mail,
+    env = {"GIT_AUTHOR_NAME": name, "GIT_AUTHOR_EMAIL": mail,
+           "GIT_COMMITTER_NAME": name, "GIT_COMMITTER_EMAIL": mail,
            "HOME": str(repo), "PATH": "/usr/bin:/bin"}
-    subprocess.run(["git", *args], cwd=repo, env=env, check=True, capture_output=True,
-                   timeout=30)
+    subprocess.run(["git", "-C", str(repo), *args], env=env, check=True,
+                   capture_output=True, timeout=30)
 
 
-@pytest.fixture(name="repo")
-def fixture_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A repository with one clean commit, the current directory of the test.
+def _repo(path: Path, files: dict[str, bytes], message: str = "initial",
+          mail: str = NO_REPLY) -> str:
+    """Create a repository with one commit of the given files.
+
+    Args:
+        path: Repository root.
+        files: Relative path to content.
+        message: Commit message.
+        mail: Address of author and committer.
+
+    Returns:
+        The repository root as text.
+    """
+    for name, data in files.items():
+        (path / name).parent.mkdir(parents=True, exist_ok=True)
+        (path / name).write_bytes(data)
+    _git(path, "init", "-q")
+    _git(path, "add", "-A")
+    _git(path, "commit", "-q", "-m", message, mail=mail)
+    return str(path)
+
+
+def test_finds_terms_in_files_paths_and_messages(tmp_path: Path,
+                                                 capsys: pytest.CaptureFixture[str]) -> None:
+    """Terms are found in content, file names and commit messages; whole words only.
 
     Args:
         tmp_path: Temporary directory of the test.
-        monkeypatch: Changes directory and environment for the test.
-
-    Returns:
-        The repository directory.
+        capsys: Captures standard output.
     """
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _git(repo, "init", "-q", "-b", "develop")
-    (repo / "README.md").write_text("Lorem ipsum\n", encoding="utf-8")
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "base")
-    monkeypatch.chdir(repo)
-    for variable in ("CI", "SCANBENCH_HOME"):
-        monkeypatch.delenv(variable, raising=False)
-    return repo
+    repo = _repo(tmp_path, {"docs/a.md": b"An example with Secretname inside.\n",
+                            "secretname_notes.txt": b"neutral\n",
+                            "words.txt": b"concatenate the files\n",
+                            "blob.bin": b"\0secretname\0"},
+                 message="add notes about secretname")
+    scan = privacy_scan.PrivacyScan(repo, ["secretname", "cat", "ab"])
+    assert scan.run() == 1
+    locations = [location for location, _term in scan.findings]
+    assert "docs/a.md:1" in locations
+    assert any(loc.startswith("path secretname_notes.txt") for loc in locations)
+    assert any(loc.startswith("commit messages") for loc in locations)
+    assert not any("words.txt" in loc for loc in locations)      # no partial words
+    assert not any(loc.startswith("blob.bin") for loc in locations)   # binary skipped
+    assert "ab" not in scan.terms                                # too short
+    assert "finding(s)" in capsys.readouterr().out
 
 
-def _lists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, deny: str,
-           allow: str = "") -> None:
-    """Write deny and allow list and point the gate at them.
+def test_clean_and_without_terms(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                 capsys: pytest.CaptureFixture[str]) -> None:
+    """A clean repository passes; without terms the scan fails, in CI it is skipped.
 
     Args:
         tmp_path: Temporary directory of the test.
         monkeypatch: Sets the environment for the test.
-        deny: Content of the deny list.
-        allow: Content of the allow list.
+        capsys: Captures standard output and error.
     """
-    (tmp_path / "denylist.txt").write_text(deny, encoding="utf-8")
-    (tmp_path / "allowlist.txt").write_text(allow, encoding="utf-8")
-    monkeypatch.setenv("SCANBENCH_PRIVACY_DENY", str(tmp_path / "denylist.txt"))
-    monkeypatch.delenv("SCANBENCH_PRIVACY_ALLOW", raising=False)
+    repo = _repo(tmp_path, {"a.txt": b"nothing to see\n"})
+    assert privacy_scan.PrivacyScan(repo, ["hidden"]).run() == 0
+    monkeypatch.delenv("CI", raising=False)
+    assert privacy_scan.PrivacyScan(repo, []).run() == 2
+    assert "FAILED: no local terms" in capsys.readouterr().err
+    monkeypatch.setenv("CI", "true")
+    assert privacy_scan.PrivacyScan(repo, []).run() == 0
+    assert "skipped in CI" in capsys.readouterr().out
+
+
+def test_identities_need_no_reply_addresses(tmp_path: Path,
+                                            capsys: pytest.CaptureFixture[str]) -> None:
+    """Author, committer and tagger: terms are found, private addresses refused (masked).
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        capsys: Captures standard output.
+    """
+    repo = _repo(tmp_path, {"a.txt": b"nothing to see\n"},
+                 mail="someone@private-mail.example")
+    _git(tmp_path, "tag", "-a", "v1", "-m", "v1", name="Hiddenname")
+    _git(tmp_path, "tag", "light")
+    scan = privacy_scan.PrivacyScan(repo, ["hiddenname"])
+    assert scan.run() == 1
+    found = dict(scan.findings)
+    commit = scan.findings[0][0].split()[1]
+    assert found[f"commit {commit} author"] == "not a no-reply address: s***@p***.example"
+    assert any(loc.startswith("tag v1 tagger name") for loc, _t in scan.findings)
+    assert not any("light" in loc for loc, _t in scan.findings)     # no tagger
+    assert "someone@" not in capsys.readouterr().out
+    allowed = privacy_scan.PrivacyScan(repo, ["unrelated"], ["someone@private-mail.example"])
+    assert allowed.run() == 0
+    assert privacy_scan.mask("x@localhost") == "x***@***"
+
+
+def test_no_reply_login_is_not_a_finding(tmp_path: Path) -> None:
+    """The login in a no-reply identity may be a deny-list term; another name is searched.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    repo = _repo(tmp_path, {"a.txt": b"nothing to see\n"})   # name t, address 1+t@...
+    assert privacy_scan.PrivacyScan(repo, ["ttt", "users"]).run() == 0
+    _git(tmp_path, "commit", "-q", "--allow-empty", "-m", "x", name="Hiddenname")
+    scan = privacy_scan.PrivacyScan(repo, ["hiddenname"])
+    assert scan.run() == 1
+    assert {loc.rsplit(" ", 1)[-1] for loc, _t in scan.findings} == {"name:1"}
+
+
+def test_allowed_phrases_are_blanked(tmp_path: Path) -> None:
+    """A term inside an allowed phrase passes; elsewhere it is still found.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    repo = _repo(tmp_path, {"a.md": b"the sea level rises\nraise the level\nlevel=3\n"})
+    scan = privacy_scan.PrivacyScan(repo, ["level"], ["Sea Level", "level="])
+    assert scan.run() == 1
+    assert [location for location, _term in scan.findings] == ["a.md:2"]
+    assert scan.allowed_count == 2
+
+
+def test_tag_annotations_are_searched(tmp_path: Path) -> None:
+    """A term in the annotation of a tag is found.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    repo = _repo(tmp_path, {"a.txt": b"nothing to see\n"})
+    _git(tmp_path, "tag", "-a", "v1", "-m", "built on secrethost")
+    scan = privacy_scan.PrivacyScan(repo, ["secrethost"])
+    assert scan.run() == 1
+    assert scan.findings[0][0].startswith("tag annotations:")
+
+
+def test_pdf_and_deleted_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                               capsys: pytest.CaptureFixture[str]) -> None:
+    """Without pdftotext a PDF is reported as not scanned; a deleted file is skipped.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+        monkeypatch: Replaces the program lookup.
+        capsys: Captures standard error.
+    """
+    repo = _repo(tmp_path, {"doc.pdf": b"%PDF-1.4 secrethost", "gone.txt": b"secrethost\n"})
+    (tmp_path / "gone.txt").unlink()
+    real_which = shutil.which
+    monkeypatch.setattr(shutil, "which",
+                        lambda name: None if name == "pdftotext" else real_which(name))
+    scan = privacy_scan.PrivacyScan(repo, ["secrethost"])
+    assert scan.run() == 0
+    assert "pdftotext missing, not scanned: doc.pdf" in capsys.readouterr().err
 
 
 def test_list_locations(tmp_path: Path) -> None:
@@ -75,8 +188,7 @@ def test_list_locations(tmp_path: Path) -> None:
     assert privacy_scan.deny_list_path({}, home) == (current, "")
     assert privacy_scan.deny_list_path({"SCANBENCH_PRIVACY_DENY": "/x/d.txt"}, home) \
         == (Path("/x/d.txt"), "")
-    relative = privacy_scan.deny_list_path({"XDG_CONFIG_HOME": "rel"}, home)
-    assert relative == (current, "")
+    assert privacy_scan.deny_list_path({"XDG_CONFIG_HOME": "rel"}, home) == (current, "")
     old_config = current.with_name("deny.txt")
     old_config.parent.mkdir(parents=True)
     old_config.write_text("term\n", encoding="utf-8")
@@ -94,137 +206,35 @@ def test_list_locations(tmp_path: Path) -> None:
         == Path("/a")
 
 
-def test_load_entries(tmp_path: Path) -> None:
-    """Comments, blank lines and case are ignored; a missing file is empty.
+def test_read_list_ignores_comments(tmp_path: Path) -> None:
+    """Comments and empty lines are skipped; a missing file is empty.
 
     Args:
         tmp_path: Temporary directory of the test.
     """
-    path = tmp_path / "list.txt"
-    assert not privacy_scan.load_entries(path)
-    path.write_text("# comment\n\n  Term One  # note\nTWO\n", encoding="utf-8")
-    assert privacy_scan.load_entries(path) == ["term one", "two"]
+    path = tmp_path / "allowlist.txt"
+    assert not privacy_scan.read_list(path)
+    path.write_text("# allowed\nsea level  # why\n\n", encoding="utf-8")
+    assert privacy_scan.read_list(path) == ["sea level"]
 
 
-def test_no_terms_fails_outside_ci(repo: Path, tmp_path: Path,
-                                   monkeypatch: pytest.MonkeyPatch,
-                                   capsys: pytest.CaptureFixture[str]) -> None:
-    """Without terms the gate fails (exit 2); CI skips it with a notice.
+def test_main_reads_the_lists_and_prints_the_hint(tmp_path: Path,
+                                                  monkeypatch: pytest.MonkeyPatch,
+                                                  capsys: pytest.CaptureFixture[str]) -> None:
+    """main() scans this repository with the configured lists.
 
     Args:
-        repo: Test repository.
         tmp_path: Temporary directory of the test.
         monkeypatch: Sets the environment for the test.
         capsys: Captures standard output.
     """
-    assert repo.is_dir()
-    _lists(tmp_path, monkeypatch, "# only a comment\n")
-    assert privacy_scan.main() == 2
-    assert "gate FAILS" in capsys.readouterr().out
-    monkeypatch.setenv("CI", "true")
-    assert privacy_scan.main() == 0
-    assert "skipped" in capsys.readouterr().out
-
-
-def test_clean_repository_passes(repo: Path, tmp_path: Path,
-                                 monkeypatch: pytest.MonkeyPatch,
-                                 capsys: pytest.CaptureFixture[str]) -> None:
-    """No term anywhere and only no-reply identities: PASS.
-
-    Args:
-        repo: Test repository.
-        tmp_path: Temporary directory of the test.
-        monkeypatch: Sets the environment for the test.
-        capsys: Captures standard output.
-    """
-    _git(repo, "tag", "-a", "v0.1.0", "-m", "first")
-    _git(repo, "tag", "light")
-    _lists(tmp_path, monkeypatch, "secret-host\n")
-    assert privacy_scan.main() == 0
-    assert "0 findings" in capsys.readouterr().out
-
-
-def test_terms_in_files_paths_messages_and_tags(repo: Path, tmp_path: Path,
-                                                monkeypatch: pytest.MonkeyPatch,
-                                                capsys: pytest.CaptureFixture[str]) -> None:
-    """A term is found in a path, a content, a commit message and a tag.
-
-    Args:
-        repo: Test repository.
-        tmp_path: Temporary directory of the test.
-        monkeypatch: Sets the environment for the test.
-        capsys: Captures standard output.
-    """
-    (repo / "secret-host.txt").write_text("at secret-host\n", encoding="utf-8")
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "copy from secret-host")
-    _git(repo, "tag", "-a", "v0.1.0", "-m", "built on secret-host")
-    _lists(tmp_path, monkeypatch, "Secret-Host\n")
-    assert privacy_scan.main() == 1
-    out = capsys.readouterr().out
-    for kind in ("path ", "content ", "commit ", "tag "):
-        assert kind in out, kind
-
-
-def test_identities(repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                    capsys: pytest.CaptureFixture[str]) -> None:
-    """Private addresses fail unless allowed; an allowed address skips the term check.
-
-    Args:
-        repo: Test repository.
-        tmp_path: Temporary directory of the test.
-        monkeypatch: Sets the environment for the test.
-        capsys: Captures standard output.
-    """
-    (repo / "b.txt").write_text("b\n", encoding="utf-8")
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "b", mail="me@laptop.home.example")
-    _git(repo, "tag", "-a", "v0.2.0", "-m", "two", mail="me@laptop.home.example")
-    _lists(tmp_path, monkeypatch, "laptop\n")
-    assert privacy_scan.main() == 1
-    out = capsys.readouterr().out
-    for role in ("author", "committer", "tagger"):
-        assert f"identity  {role} someone <me@laptop.home.example>" in out
-    assert "not in the allow list" in out and "'laptop'" in out
-    _lists(tmp_path, monkeypatch, "laptop\n", "Me@Laptop.home.example  # old\n")
-    assert privacy_scan.main() == 0
-    assert "1 allowed addresses" in capsys.readouterr().out
-
-
-def test_old_name_is_reported(repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                              capsys: pytest.CaptureFixture[str]) -> None:
-    """A deny list with the old name still works and the hint is printed.
-
-    Args:
-        repo: Test repository.
-        tmp_path: Temporary directory of the test.
-        monkeypatch: Sets the environment for the test.
-        capsys: Captures standard output.
-    """
-    assert repo.is_dir()
     root = tmp_path / "root"
     (root / "privacy").mkdir(parents=True)
-    (root / "privacy" / "deny.txt").write_text("secret-host\n", encoding="utf-8")
+    (root / "privacy" / "deny.txt").write_text("zzqqxxunlikelyterm\n", encoding="utf-8")
     monkeypatch.delenv("SCANBENCH_PRIVACY_DENY", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "home" / ".config"))
     monkeypatch.setenv("SCANBENCH_HOME", str(root))
-    assert privacy_scan.main() == 0
-    assert "please rename it" in capsys.readouterr().out
-
-
-def test_fresh_repository_has_no_history(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                         capsys: pytest.CaptureFixture[str]) -> None:
-    """Before the first commit only files are checked.
-
-    Args:
-        tmp_path: Temporary directory of the test.
-        monkeypatch: Changes directory and environment for the test.
-        capsys: Captures standard output.
-    """
-    fresh = tmp_path / "fresh"
-    fresh.mkdir()
-    _git(fresh, "init", "-q")
-    monkeypatch.chdir(fresh)
-    monkeypatch.delenv("CI", raising=False)
-    _lists(tmp_path, monkeypatch, "secret-host\n")
-    assert privacy_scan.main() == 0
-    assert "0 findings" in capsys.readouterr().out
+    assert privacy_scan.main() in (0, 1)                # this repository's own history
+    out = capsys.readouterr().out
+    assert "please rename it" in out and "1 term(s)" in out

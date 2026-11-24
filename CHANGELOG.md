@@ -22,12 +22,13 @@ All notable changes are documented here. The format follows
 
 ### Changed
 
-- Privacy gate: fails (exit status 2) when no deny terms exist, instead of
-  passing neutrally; only CI skips it. It also checks author, committer and
-  tagger of the whole history (no-reply address or allow list) and tag
-  annotations. Lists are named `denylist.txt` and `allowlist.txt` in
-  `~/.config/scanbench/privacy/`; the old `deny.txt` is still read, with a
-  hint to rename it.
+- Privacy gate with the rules of mediatools: terms match whole words only,
+  an allow list of phrases permits a term inside them, author, committer and
+  tagger of the whole history must use a no-reply address (or be listed),
+  tag annotations are searched. Without deny terms it fails (exit status 2)
+  instead of passing neutrally; only CI skips it. Lists are named
+  `denylist.txt` and `allowlist.txt` in `~/.config/scanbench/privacy/`; the
+  old `deny.txt` is still read, with a hint to rename it.
 - `tools/check.sh` activates the project's `.venv` itself if no venv is
   active.
 - Tests are isolated from the desktop and the user's data: temporary `HOME`,

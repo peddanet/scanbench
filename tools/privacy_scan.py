@@ -1,50 +1,59 @@
 #!/usr/bin/env python3
-"""Gate 0: refuse private terms and private identities in the repository.
+"""Gate 0: refuse terms and identities that allow conclusions about private data.
 
-Checked: tracked file paths and contents (PDF text via ``pdftotext`` if
-available), commit messages, tag annotations, and the identities of the whole
-history - author and committer of every commit, tagger of every annotated tag.
+Same rules as ``tools/privacy_scan.py`` of mediatools (dev-conventions
+handover v8); only the locations of the lists differ, and tag annotations
+are searched as well.
 
-The lists live outside the repository, one entry per line (``#`` starts a
-comment, case does not matter). Samples: ``examples/privacy/``.
+The terms are never part of the repository - a list of them would itself
+reveal what it protects. Both lists live in the configuration, one entry per
+line, ``#`` starts a comment (samples with invented content: ``examples/privacy/``):
 
-* Deny list (terms): ``$SCANBENCH_PRIVACY_DENY`` if set, else
-  ``$XDG_CONFIG_HOME/scanbench/privacy/denylist.txt``. The older name
-  ``privacy/deny.txt`` (below ``$SCANBENCH_HOME`` or
-  ``~/.config/scanbench``) is still read, with a hint to rename it.
-* Allow list (identities): ``$SCANBENCH_PRIVACY_ALLOW`` if set, else
-  ``allowlist.txt`` next to the deny list. Each line is one e-mail address
-  that may appear as author, committer or tagger although it is no no-reply
-  address. A listed address is also exempt from the term check; the name is
-  not.
+* deny list (forbidden terms, at least 3 characters): ``$SCANBENCH_PRIVACY_DENY``
+  if set, else ``$XDG_CONFIG_HOME/scanbench/privacy/denylist.txt``
+  (default ``~/.config/scanbench/privacy/``). The older name
+  ``privacy/deny.txt`` (below ``$SCANBENCH_HOME`` or ``~/.config/scanbench``)
+  is still read, with a hint to rename it;
+* allow list (allowed phrases): ``$SCANBENCH_PRIVACY_ALLOW`` if set, else
+  ``allowlist.txt`` next to the deny list. Allowed phrases are blanked out
+  before the search, so a term stays forbidden everywhere except inside an
+  allowed phrase - e.g. the term ``level`` with the allowed phrase
+  ``sea level``.
 
-Every identity must use a no-reply address or stand alone in the allow list.
+Scanned are the contents of all tracked files (PDFs via ``pdftotext`` if
+installed), the tracked file paths, all commit messages, the annotations of
+all tags and the identities: author and committer of every commit, tagger of
+every tag. Matching ignores case; a term must not be part of a longer word
+(``cat`` does not match ``concatenate``).
 
-Exit status: 0 = nothing found, 1 = findings, 2 = no terms to check. A gate
-must never pass silently because its input is missing, so a missing or empty
-deny list fails - except in CI (``CI=true``), where no private list exists and
-the gate is skipped with a notice.
+Every e-mail address of an identity must be a no-reply address
+(``*@users.noreply.github.com``, ``noreply@github.com``,
+``noreply@anthropic.com``) or stand on its own line in the allow list.
+Findings name the commit or tag and show the address masked. A no-reply
+address and a name equal to its login are not searched for terms: they are
+the public pseudonym the conventions prescribe.
+
+**A gate must never pass because its input is missing:** without any local
+term the scan fails (exit 2). Only in CI (``CI=true``, always set by GitHub
+Actions), which has no local list by design, it is skipped and says so.
+
+Exit codes: 0 clean or skipped in CI, 1 terms or private addresses found,
+2 no local terms.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
-from collections import Counter
 from pathlib import Path
 
-NO_REPLY_SUFFIXES = ("@users.noreply.github.com",)
-"""Domains of per-user no-reply addresses."""
+NO_REPLY = re.compile(r"^[^@\s]+@users\.noreply\.github\.com$|^noreply@github\.com$"
+                      r"|^noreply@anthropic\.com$", re.IGNORECASE)
+"""No-reply addresses: GitHub per-user and shared, co-author trailer."""
 
-NO_REPLY_ADDRESSES = ("noreply@github.com", "noreply@anthropic.com")
-"""Shared no-reply addresses (GitHub merge commits, co-author trailers)."""
-
-SAMPLES = ("examples/privacy/denylist.sample.txt", "examples/privacy/allowlist.sample.txt")
-"""Samples of the lists: their invented terms would match themselves after
-``cp -n``, so their contents are not searched (their paths are)."""
-
-SEP = "\x1f"
-"""Field separator in git output (unit separator, never part of a name)."""
+MIN_LENGTH = 3
+"""Shorter terms are ignored: they would match too much."""
 
 
 def config_dir(environ: dict[str, str], home: Path) -> Path:
@@ -103,189 +112,234 @@ def allow_list_path(environ: dict[str, str], deny: Path) -> Path:
     return Path(explicit).expanduser() if explicit else deny.with_name("allowlist.txt")
 
 
-def load_entries(path: Path) -> list[str]:
-    """Read a list file.
+def read_list(path: Path) -> list[str]:
+    """Read a local list.
 
     Args:
-        path: List file; a missing file gives an empty list.
+        path: List file.
 
     Returns:
-        Lower-case entries without comments and blank lines.
+        Entries without comments and empty lines; empty if the file is missing.
     """
-    if not path.is_file():
+    try:
+        with path.open(encoding="utf-8") as handle:
+            return [entry for entry in (line.split("#", 1)[0].strip() for line in handle)
+                    if entry]
+    except FileNotFoundError:
         return []
-    entries = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        entry = line.split("#", 1)[0].strip().lower()
-        if entry:
-            entries.append(entry)
-    return entries
 
 
-def git(*args: str) -> str:
-    """Run a read-only git command in the repository.
+def mask(address: str) -> str:
+    """Hide an e-mail address except its shape.
 
     Args:
-        *args: Arguments after ``git``.
+        address: The address.
 
     Returns:
-        Standard output of the command.
+        First letter of the local part and of the domain, the rest replaced,
+        e.g. ``p***@g***.com``.
     """
-    exe = shutil.which("git") or "git"
-    return subprocess.run([exe, *args], capture_output=True, text=True, check=True).stdout
+    local, _, domain = address.partition("@")
+    name, _, suffix = domain.rpartition(".")
+    return f"{local[:1]}***@{name[:1]}***.{suffix}" if name else f"{local[:1]}***@***"
 
 
-def has_commits() -> bool:
-    """Tell whether the repository has a commit (a fresh one has none).
+def _phrase(text: str) -> str:
+    """Build the regular expression of one allowed phrase.
 
-    Returns:
-        True if ``HEAD`` exists.
-    """
-    exe = shutil.which("git") or "git"
-    return subprocess.run([exe, "rev-parse", "--verify", "-q", "HEAD"],
-                          capture_output=True, check=False).returncode == 0
-
-
-def file_text(path: Path) -> str:
-    """Return the searchable text of a tracked file.
+    Word boundaries are required only where the phrase begins or ends with a
+    letter or digit, so ``top-level`` does not cover ``stop-level`` while
+    ``key=`` may be followed by anything.
 
     Args:
-        path: File below the repository root.
+        text: Allowed phrase.
 
     Returns:
-        Extracted PDF text, or the file decoded leniently.
+        Regular expression.
     """
-    pdftotext = shutil.which("pdftotext")
-    if path.suffix.lower() == ".pdf" and pdftotext:
-        result = subprocess.run([pdftotext, str(path), "-"], capture_output=True,
-                                text=True, check=False)
-        return result.stdout
-    return path.read_bytes().decode("utf-8", errors="ignore")
+    start = r"(?<![a-z0-9])" if text[0].isalnum() else ""
+    end = r"(?![a-z0-9])" if text[-1].isalnum() else ""
+    return start + re.escape(text) + end
 
 
-def file_findings(terms: list[str]) -> list[str]:
-    """Search tracked paths and contents for the terms.
+class PrivacyScan:
+    """Searches the repository for local terms and private identities.
 
-    Args:
-        terms: Lower-case deny terms.
-
-    Returns:
-        One line per finding.
+    Attributes:
+        repo: Repository root.
+        terms: Terms to search for (lower case, longest first).
+        pattern: Compiled alternation of all terms, or None.
+        allowed: Compiled alternation of the allowed phrases, or None.
+        allowed_count: Number of allowed phrases.
+        allowed_addresses: Addresses accepted as identities.
+        findings: ``(location, term or reason)`` pairs.
     """
-    found = []
-    for name in git("ls-files").splitlines():
-        path = Path(name)
-        if not path.is_file():
-            continue
-        text = "" if name in SAMPLES else file_text(path).lower()
-        for term in terms:
-            if term in name.lower():
-                found.append(f"path      {name}: '{term}'")
-            if term in text:
-                found.append(f"content   {name}: '{term}'")
-    return found
 
+    def __init__(self, repo: str, terms: list[str], allowed: list[str] | None = None) -> None:
+        """Prepare the search.
 
-def identities() -> Counter[tuple[str, str, str]]:
-    """Collect author, committer and tagger identities of the whole history.
+        Args:
+            repo: Repository root.
+            terms: Terms to search for.
+            allowed: Phrases in which a term is permitted; addresses accepted
+                as identities.
+        """
+        self.repo = repo
+        self.terms = sorted({t.strip().lower() for t in terms if len(t.strip()) >= MIN_LENGTH},
+                            key=len, reverse=True)
+        self.pattern = re.compile(
+            r"(?<![a-z0-9])(" + "|".join(re.escape(t) for t in self.terms) + r")(?![a-z0-9])",
+            re.IGNORECASE) if self.terms else None
+        phrases = sorted({a.strip() for a in allowed or [] if a.strip()}, key=len, reverse=True)
+        self.allowed = re.compile("|".join(_phrase(a) for a in phrases),
+                                  re.IGNORECASE) if phrases else None
+        self.allowed_count = len(phrases)
+        self.allowed_addresses = {a.strip().lower() for a in allowed or [] if "@" in a}
+        self.findings: list[tuple[str, str]] = []
 
-    Returns:
-        Count per (role, name, lower-case e-mail address).
-    """
-    found: Counter[tuple[str, str, str]] = Counter()
-    fmt = SEP.join(("%an", "%ae", "%cn", "%ce"))
-    for line in git("log", "--all", f"--format={fmt}").splitlines():
-        author, a_mail, committer, c_mail = line.split(SEP)
-        found[("author", author, a_mail.lower())] += 1
-        found[("committer", committer, c_mail.lower())] += 1
-    tag_fmt = "%(taggername)%1f%(taggeremail)"
-    for line in git("for-each-ref", f"--format={tag_fmt}", "refs/tags").splitlines():
-        tagger, mail = line.split(SEP)
-        if tagger:                      # lightweight tags have no tagger
-            found[("tagger", tagger, mail.strip("<>").lower())] += 1
-    return found
+    def _git(self, *args: str) -> str:
+        """Run a read-only git command in the repository.
 
+        Args:
+            *args: git arguments.
 
-def is_no_reply(mail: str) -> bool:
-    """Tell whether an address is a no-reply address.
+        Returns:
+            Standard output.
+        """
+        git = shutil.which("git") or "git"
+        return subprocess.run([git, "-C", self.repo, *args], capture_output=True, text=True,
+                              errors="surrogateescape", check=True).stdout
 
-    Args:
-        mail: Lower-case e-mail address.
+    def _text_of(self, path: str) -> str | None:
+        """Return the searchable text of a tracked file.
 
-    Returns:
-        True for GitHub per-user no-reply addresses and the shared ones.
-    """
-    return mail in NO_REPLY_ADDRESSES or mail.endswith(NO_REPLY_SUFFIXES)
+        Args:
+            path: Path relative to the repository.
 
+        Returns:
+            Text, or None for binary files that cannot be converted and for
+            files deleted in the working copy.
+        """
+        full = os.path.join(self.repo, path)
+        if not os.path.isfile(full):
+            return None
+        with open(full, "rb") as handle:
+            data = handle.read()
+        if path.lower().endswith(".pdf"):
+            tool = shutil.which("pdftotext")
+            if tool is None:
+                print(f"warning: pdftotext missing, not scanned: {path}", file=sys.stderr)
+                return None
+            return subprocess.run([tool, full, "-"], capture_output=True, text=True,
+                                  errors="replace", check=False).stdout
+        if b"\0" in data:
+            return None
+        return data.decode("utf-8", errors="replace")
 
-def identity_findings(terms: list[str], allowed: list[str]) -> list[str]:
-    """Check every identity against no-reply rule, allow list and terms.
+    def _search(self, location: str, text: str) -> None:
+        """Record every term found in a text.
 
-    Args:
-        terms: Lower-case deny terms.
-        allowed: Lower-case e-mail addresses from the allow list.
+        Args:
+            location: Where the text comes from.
+            text: Text to search.
+        """
+        if self.pattern is None:
+            return
+        for number, line in enumerate(text.splitlines(), 1):
+            if self.allowed is not None:
+                line = self.allowed.sub(lambda m: " " * len(m.group(0)), line)
+            for match in self.pattern.finditer(line):
+                self.findings.append((f"{location}:{number}", match.group(1)))
 
-    Returns:
-        One line per finding.
-    """
-    found = []
-    for (role, name, mail), count in sorted(identities().items()):
-        who = f"identity  {role} {name} <{mail}> ({count}x)"
-        if not is_no_reply(mail) and mail not in allowed:
-            found.append(f"{who}: no no-reply address and not in the allow list")
-        checked = name.lower() if mail in allowed else f"{name} {mail}".lower()
-        found.extend(f"{who}: '{term}'" for term in terms if term in checked)
-    return found
+    def identities(self) -> list[tuple[str, str, str]]:
+        """List the identities of the history.
 
+        Returns:
+            ``(location, name, address)`` for author and committer of every
+            commit and the tagger of every annotated tag.
+        """
+        result: list[tuple[str, str, str]] = []
+        log = self._git("log", "--all", "--format=%h%x00%an%x00%ae%x00%cn%x00%ce")
+        for line in log.splitlines():
+            parts = line.split("\0")
+            if len(parts) == 5:
+                result.append((f"commit {parts[0]} author", parts[1], parts[2]))
+                result.append((f"commit {parts[0]} committer", parts[3], parts[4]))
+        tags = self._git("for-each-ref", "refs/tags",
+                         "--format=%(refname:short)%00%(taggername)%00%(taggeremail)")
+        for line in tags.splitlines():
+            parts = line.split("\0")
+            if len(parts) == 3 and (parts[1] or parts[2]):
+                result.append((f"tag {parts[0]} tagger", parts[1], parts[2].strip("<>")))
+        return result
 
-def message_findings(terms: list[str]) -> list[str]:
-    """Search commit messages and tag annotations for the terms.
+    def check_identities(self) -> None:
+        """Search names and addresses for terms; demand no-reply addresses.
 
-    Args:
-        terms: Lower-case deny terms.
+        A no-reply address is a pseudonym GitHub publishes for the account
+        (``<id>+<login>@users.noreply.github.com``); it and a name equal to its
+        login are the identity the conventions prescribe, so they are not
+        searched for terms (a deny list may hold the login to keep it out of
+        files).
+        """
+        for location, name, address in self.identities():
+            if NO_REPLY.match(address):
+                login = address.split("@", 1)[0].rpartition("+")[2].lower()
+                if name.strip().lower() != login:
+                    self._search(f"{location} name", name)
+                continue
+            self._search(f"{location} name", name)
+            self._search(f"{location} e-mail", address)
+            if address.lower() not in self.allowed_addresses:
+                self.findings.append((location, f"not a no-reply address: {mask(address)}"))
 
-    Returns:
-        One line per finding.
-    """
-    text = git("log", "--format=%B", "--all").lower()
-    tags = git("for-each-ref", "--format=%(contents)", "refs/tags").lower()
-    found = [f"commit    message contains '{t}'" for t in terms if t in text]
-    found.extend(f"tag       annotation contains '{t}'" for t in terms if t in tags)
-    return found
+    def run(self) -> int:
+        """Scan files, paths, commit messages, tag annotations and identities.
+
+        Returns:
+            0 if clean (or skipped in CI), 1 if something was found, 2 if
+            there are no local terms outside CI.
+        """
+        if self.pattern is None:
+            if os.environ.get("CI") == "true":
+                print("privacy scan skipped in CI: no local terms by design "
+                      "(the deny list exists only on the developer's machine)")
+                return 0
+            print("privacy scan FAILED: no local terms - a scan without terms checks "
+                  "nothing.\n  Create the lists from the samples: CONTRIBUTING.md, "
+                  "\"Local files of a developer\".", file=sys.stderr)
+            return 2
+        for path in self._git("ls-files", "-z").split("\0"):
+            if not path:
+                continue
+            self._search(f"path {path}", path)
+            text = self._text_of(path)
+            if text is not None:
+                self._search(path, text)
+        self._search("commit messages", self._git("log", "--all", "--format=commit %h%n%B"))
+        self._search("tag annotations",
+                     self._git("for-each-ref", "refs/tags",
+                               "--format=tag %(refname:short)%0a%(contents)"))
+        self.check_identities()
+        for location, term in self.findings:
+            print(f"{location}: {term}")
+        print(f"privacy scan: {len(self.terms)} term(s), {self.allowed_count} allowed "
+              f"phrase(s), {len(self.findings)} finding(s)")
+        return 1 if self.findings else 0
 
 
 def main() -> int:
-    """Run the gate.
+    """Command-line entry point.
 
     Returns:
-        0 if nothing was found, 1 on findings, 2 without terms outside CI.
+        Exit code.
     """
     environ = dict(os.environ)
     deny, hint = deny_list_path(environ, Path.home())
-    terms = load_entries(deny)
-    if not terms:
-        if environ.get("CI") == "true":
-            print("CI: no private deny list here - privacy gate skipped (runs locally)")
-            return 0
-        allow = deny.with_name("allowlist.txt")
-        print(f"no terms in {deny}: nothing can be checked, gate FAILS.\n"
-              "Create the lists from the samples (see CONTRIBUTING.md):\n"
-              f"  mkdir -p {deny.parent}\n"
-              f"  cp -n examples/privacy/denylist.sample.txt {deny}\n"
-              f"  cp -n examples/privacy/allowlist.sample.txt {allow}\n"
-              f"  chmod 600 {deny} {allow}")
-        return 2
     if hint:
         print(hint)
-    allowed = load_entries(allow_list_path(environ, deny))
-    result = file_findings(terms)
-    if has_commits():
-        result += identity_findings(terms, allowed) + message_findings(terms)
-    for line in result:
-        print(line)
-    print(f"{len(terms)} terms, {len(allowed)} allowed addresses checked, "
-          f"{len(result)} findings")
-    return 1 if result else 0
+    repo = str(Path(__file__).resolve().parent.parent)
+    return PrivacyScan(repo, read_list(deny), read_list(allow_list_path(environ, deny))).run()
 
 
 if __name__ == "__main__":

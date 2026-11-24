@@ -38,13 +38,13 @@ def test_preset_sample_is_valid() -> None:
 
 
 def test_privacy_samples_hold_entries() -> None:
-    """Both list samples hold entries and are excluded from the content search."""
-    deny = privacy_scan.load_entries(EXAMPLES / "privacy" / "denylist.sample.txt")
-    allow = privacy_scan.load_entries(EXAMPLES / "privacy" / "allowlist.sample.txt")
+    """Both list samples hold entries the scan accepts."""
+    deny = privacy_scan.read_list(EXAMPLES / "privacy" / "denylist.sample.txt")
+    allow = privacy_scan.read_list(EXAMPLES / "privacy" / "allowlist.sample.txt")
     assert deny and allow
-    assert all("@" in address and " " not in address for address in allow)
-    root = EXAMPLES.parent
-    assert all((root / name).is_file() for name in privacy_scan.SAMPLES)
+    scan = privacy_scan.PrivacyScan(str(EXAMPLES.parent), deny, allow)
+    assert scan.terms == sorted({t.lower() for t in deny}, key=len, reverse=True)
+    assert scan.allowed_count == len(allow)
 
 
 def test_social_preview_meets_the_github_limits() -> None:

@@ -11,7 +11,7 @@ patreon-downloader of the same author and the dev-conventions handover v8.
 
 | Stage | Gate | Tool | Pass condition | Configured in |
 |---|---|---|---|---|
-| [0] | privacy | `tools/privacy_scan.py` | no deny-list term in tracked files, paths, PDF text, commit messages, tag annotations; every author, committer and tagger uses a no-reply address or is allow-listed | local deny and allow list (below) |
+| [0] | privacy | `tools/privacy_scan.py` (rules as in mediatools) | no deny-list term (whole words) in tracked files, paths, PDF text, commit messages, tag annotations, identities; every author, committer and tagger uses a no-reply address or is allow-listed | local deny and allow list (below) |
 | [1] | shell | shellcheck | no finding in `install.sh`, `tools/*.sh`, `.githooks/pre-push` | per-line `# shellcheck disable=SCxxxx  # <reason>` only |
 | [2] | format | pycodestyle | PEP 8, 100 columns | `tools/check.sh` |
 | [3] | lint | pylint + docparams + mccabe | score 10.00/10 for `src`, `tests`, `tools` | `[tool.pylint.*]` |
@@ -108,17 +108,37 @@ a collapsible log group.
 
 ## Privacy gate: deny list and allow list
 
-Both lists live outside the repository, one entry per line, case
-insensitive, `#` starts a comment. Samples with invented content:
-`examples/privacy/`.
+The scan follows the same rules as `tools/privacy_scan.py` of mediatools, so
+one set of lists serves both projects. Both lists live outside the
+repository - a list of the protected terms would itself reveal what it
+protects. One entry per line, `#` starts a comment. Samples with invented
+content: `examples/privacy/`.
 
 | List | Location, first match wins | Content |
 |---|---|---|
-| deny list | `$SCANBENCH_PRIVACY_DENY`; `$XDG_CONFIG_HOME/scanbench/privacy/denylist.txt` (default `~/.config/scanbench/privacy/`); still read with a hint to rename: `$SCANBENCH_HOME/privacy/deny.txt`, `~/.config/scanbench/privacy/deny.txt` | terms that must never appear: real name, host names, user names, IP addresses of scanner and printer, private e-mail addresses, album and folder names |
-| allow list | `$SCANBENCH_PRIVACY_ALLOW`; else `allowlist.txt` next to the deny list | e-mail addresses accepted as author, committer or tagger although they are no no-reply address (keep empty if possible) |
+| deny list | `$SCANBENCH_PRIVACY_DENY`; `$XDG_CONFIG_HOME/scanbench/privacy/denylist.txt` (default `~/.config/scanbench/privacy/`); still read with a hint to rename: `$SCANBENCH_HOME/privacy/deny.txt`, `~/.config/scanbench/privacy/deny.txt` | forbidden terms, at least 3 characters: real name, host names, user names, IP addresses, private e-mail addresses, album and folder names |
+| allow list | `$SCANBENCH_PRIVACY_ALLOW`; else `allowlist.txt` next to the deny list | allowed phrases in which a term is permitted (the term `level` inside `sea level`); an e-mail address alone on its line is accepted as identity |
 
-Create both from the samples (normal user; `cp -n` never overwrites an
-existing list, `chmod 600` makes them readable for you only):
+Matching rules:
+
+* Case is ignored; a term matches whole words only (`cat` does not match
+  `concatenate`). Terms shorter than 3 characters are ignored.
+* Allowed phrases are blanked out before the search. A phrase needs a word
+  boundary only where it begins or ends with a letter or digit, so
+  `top-level` does not cover `stop-level`, while `key=` may be followed by
+  anything.
+* Identities: every author, committer and tagger of the whole history must
+  use a no-reply address (`*@users.noreply.github.com`, `noreply@github.com`,
+  `noreply@anthropic.com`) or stand alone on a line of the allow list.
+  Findings name the commit or tag and show the address masked
+  (`p***@g***.com`). A no-reply address and a name equal to its login are
+  not searched for terms; any other name is.
+* Binary files are skipped; PDF text is extracted with `pdftotext` (package
+  `poppler-utils`), otherwise the PDF is reported as not scanned.
+
+Create both lists from the samples (normal user; `cp -n` never overwrites an
+existing list, `chmod 600` makes them readable for you only), then replace
+the invented entries by your own:
 
 ~~~bash
 mkdir -p ~/.config/scanbench/privacy && \
@@ -127,19 +147,9 @@ cp -n examples/privacy/allowlist.sample.txt ~/.config/scanbench/privacy/allowlis
 chmod 600 ~/.config/scanbench/privacy/denylist.txt ~/.config/scanbench/privacy/allowlist.txt
 ~~~
 
-Then replace the invented sample entries by your own. Prefer specific terms;
-common words block ordinary code.
-
-Identities: every author, committer and tagger of the whole history must use
-a no-reply address (`*@users.noreply.github.com`, `noreply@github.com`,
-`noreply@anthropic.com`) or stand alone in the allow list. An allow-listed
-address is exempt from the deny terms; the name is still checked.
-
 The gate never passes silently: without terms it **fails** with exit status
-2 and prints the commands above. Only in CI (`CI=true`), where no private
-list exists, it is skipped with a notice. The two sample files are not
-searched by content (their invented terms would match themselves). PDF text
-is extracted with `pdftotext` (package `poppler-utils`) if installed.
+2. Only in CI (`CI=true`), where no private list exists, it is skipped with a
+notice.
 
 ## Pre-push hook
 

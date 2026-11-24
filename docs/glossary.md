@@ -12,8 +12,9 @@ for photos.
 **airscan (sane-airscan)** -- SANE backend for network scanners speaking eSCL
 or WSD. [sane-airscan](https://github.com/alexpevzner/sane-airscan)
 
-**Allow list (privacy gate)** -- local file of e-mail addresses accepted as
-commit or tag identities although they are no no-reply address; see
+**Allow list (privacy gate)** -- local file of phrases in which a deny-list
+term is permitted, and of e-mail addresses accepted as commit or tag
+identities although they are no no-reply address; see
 [quality gates](developer/quality-gates.md#privacy-gate-deny-list-and-allow-list).
 
 **Annotated tag** -- git tag with author, date and message; marks releases.

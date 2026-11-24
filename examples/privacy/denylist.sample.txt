@@ -1,10 +1,9 @@
-# Deny list of the privacy gate (tools/privacy_scan.py), one term per line.
-# Case does not matter, "#" starts a comment. Real file, never in the repository:
-#   ~/.config/scanbench/privacy/denylist.txt   (mode 600)
-# Put here what must never appear in files, paths, commit messages, tags or
-# commit identities: your real name, host names, local user names, IP
-# addresses of scanner and printer, private e-mail addresses, album names.
-# The invented terms below only show the form - replace them.
-lorem-ipsum-hostname
-192.0.2.17
-dolor.sit@example.org
+# Deny list of tools/privacy_scan.py - SAMPLE with invented terms.
+# Copy to ~/.config/scanbench/privacy/denylist.txt (CONTRIBUTING.md,
+# "Local files of a developer"), then replace the terms by your own.
+# One term per line; '#' starts a comment; at least 3 characters.
+# A term matches whole words only and ignores case. Never commit the
+# real list: it would reveal what it protects.
+loremfolder
+ipsumcollection
+dolorsitamet
