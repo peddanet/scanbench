@@ -11,6 +11,7 @@ from scenes import DPI, Placed, scan
 from scanbench.application.document_session import DocumentSession
 from scanbench.application.photo_session import INDEX_FILE, AlbumOptions, PhotoSession
 from scanbench.domain.image_format import ImageFormat
+from scanbench.domain.paper_format import A4
 from scanbench.domain.pdf_quality import PdfQuality
 from scanbench.domain.scan_error import ScanError
 from scanbench.domain.scan_settings import ScanSettings
@@ -56,6 +57,8 @@ def test_document_editing_and_pdf(tmp_path: Path) -> None:
     assert ImageStore().load_rgb(rendered[1]).shape == (60, 80, 3)
     pdf = session.save_pdf(tmp_path / "doc.pdf", PdfQuality.ORIGINAL)
     assert pdf.read_bytes().startswith(b"%PDF")
+    white = session.save_pdf(tmp_path / "white.pdf", PdfQuality.ORIGINAL, A4, True)
+    assert white.read_bytes().startswith(b"%PDF")
     session.clear()
     assert not session.pages
 

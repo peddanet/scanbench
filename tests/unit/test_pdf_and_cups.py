@@ -1,5 +1,6 @@
 """Tests for the PDF writer and the CUPS client."""
 
+import re
 import shutil
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import pytest
 from fakes import FakeShell, failed, ok
 from scan_fakes import write_png
 from scanbench.domain.command_result import CommandResult
+from scanbench.domain.paper_format import A4
 from scanbench.domain.pdf_quality import PdfQuality
 from scanbench.domain.scan_error import ScanError
 from scanbench.infrastructure.cups_client import CupsClient
@@ -149,3 +151,22 @@ def test_cups_errors(tmp_path: Path) -> None:
         broken.print_files("x", [], 1, {})
     none = CupsClient(FakeShell(script={("lpstat", "-d"): [ok("no system default destination")]}))
     assert not none.printers()
+
+
+def test_pages_get_the_paper_format(tmp_path: Path) -> None:
+    """Scans of slightly different size all become exact A4 pages; turned ones landscape.
+
+    Fronts and backs of a duplex scan differ by a few pixels; pages of
+    changing size kept the printer from printing two-sided.
+
+    Args:
+        tmp_path: Temporary directory of the test.
+    """
+    sizes = ((3508, 2480), (3510, 2550), (2480, 3508))         # rows x columns at 300 dpi
+    pages = [write_png(tmp_path / f"s{n}.png", np.full((*size, 3), 255, np.uint8), 300)
+             for n, size in enumerate(sizes)]
+    data = PdfWriter(FakeShell()).write(pages, tmp_path / "a4.pdf", PdfQuality.ORIGINAL,
+                                        A4).read_bytes()
+    boxes = [tuple(round(float(v), 1) for v in m.split()[2:4])
+             for m in re.findall(rb"/MediaBox \[ ?([\d. ]+)\]", data)]
+    assert boxes == [(595.3, 841.9), (595.3, 841.9), (841.9, 595.3)]
