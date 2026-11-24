@@ -1,54 +1,125 @@
 #!/usr/bin/env python3
-"""Gate 0: refuse private terms in tracked files, file paths and commit messages.
+"""Gate 0: refuse private terms and private identities in the repository.
 
-The deny list lives outside the repository, one term per line (case
-insensitive, ``#`` starts a comment):
+Checked: tracked file paths and contents (PDF text via ``pdftotext`` if
+available), commit messages, tag annotations, and the identities of the whole
+history - author and committer of every commit, tagger of every annotated tag.
 
-* ``$SCANBENCH_PRIVACY_DENY`` if set, else
-* ``$SCANBENCH_HOME/privacy/deny.txt`` if ``SCANBENCH_HOME`` is set, else
-* ``~/.config/scanbench/privacy/deny.txt``.
+The lists live outside the repository, one entry per line (``#`` starts a
+comment, case does not matter). Samples: ``examples/privacy/``.
 
-Typical entries: the scanner's IP address, host names, user names, album
-names. Without a list the gate passes neutrally (this is the case in CI).
-Text of PDF files is extracted with ``pdftotext`` if available.
+* Deny list (terms): ``$SCANBENCH_PRIVACY_DENY`` if set, else
+  ``$XDG_CONFIG_HOME/scanbench/privacy/denylist.txt``. The older name
+  ``privacy/deny.txt`` (below ``$SCANBENCH_HOME`` or
+  ``~/.config/scanbench``) is still read, with a hint to rename it.
+* Allow list (identities): ``$SCANBENCH_PRIVACY_ALLOW`` if set, else
+  ``allowlist.txt`` next to the deny list. Each line is one e-mail address
+  that may appear as author, committer or tagger although it is no no-reply
+  address. A listed address is also exempt from the term check; the name is
+  not.
+
+Every identity must use a no-reply address or stand alone in the allow list.
+
+Exit status: 0 = nothing found, 1 = findings, 2 = no terms to check. A gate
+must never pass silently because its input is missing, so a missing or empty
+deny list fails - except in CI (``CI=true``), where no private list exists and
+the gate is skipped with a notice.
 """
 
 import os
 import shutil
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
+NO_REPLY_SUFFIXES = ("@users.noreply.github.com",)
+"""Domains of per-user no-reply addresses."""
 
-def deny_list_path() -> Path:
-    """Return the location of the deny list.
+NO_REPLY_ADDRESSES = ("noreply@github.com", "noreply@anthropic.com")
+"""Shared no-reply addresses (GitHub merge commits, co-author trailers)."""
 
-    Returns:
-        Path of the deny list file (it may not exist).
-    """
-    explicit = os.environ.get("SCANBENCH_PRIVACY_DENY")
-    if explicit:
-        return Path(explicit).expanduser()
-    home = os.environ.get("SCANBENCH_HOME")
-    base = Path(home).expanduser() if home else Path.home() / ".config" / "scanbench"
-    return base / "privacy" / "deny.txt"
+SAMPLES = ("examples/privacy/denylist.sample.txt", "examples/privacy/allowlist.sample.txt")
+"""Samples of the lists: their invented terms would match themselves after
+``cp -n``, so their contents are not searched (their paths are)."""
+
+SEP = "\x1f"
+"""Field separator in git output (unit separator, never part of a name)."""
 
 
-def load_terms(path: Path) -> list[str]:
-    """Read the deny terms.
+def config_dir(environ: dict[str, str], home: Path) -> Path:
+    """Return the configuration directory of scanbench.
 
     Args:
-        path: Deny list file.
+        environ: Environment variables.
+        home: Home directory.
 
     Returns:
-        Lower-case terms without comments and blank lines.
+        ``$XDG_CONFIG_HOME/scanbench`` (absolute value only) or
+        ``~/.config/scanbench``.
     """
-    terms = []
+    value = environ.get("XDG_CONFIG_HOME", "")
+    base = Path(value) if value and Path(value).is_absolute() else home / ".config"
+    return base / "scanbench"
+
+
+def deny_list_path(environ: dict[str, str], home: Path) -> tuple[Path, str]:
+    """Return the deny list to use and a hint if it has an old name.
+
+    Args:
+        environ: Environment variables.
+        home: Home directory.
+
+    Returns:
+        Path of the deny list (it may not exist) and a hint, empty if none.
+    """
+    explicit = environ.get("SCANBENCH_PRIVACY_DENY", "")
+    if explicit:
+        return Path(explicit).expanduser(), ""
+    current = config_dir(environ, home) / "privacy" / "denylist.txt"
+    if current.is_file():
+        return current, ""
+    old = [config_dir(environ, home) / "privacy" / "deny.txt"]
+    root = environ.get("SCANBENCH_HOME", "")
+    if root:
+        old.insert(0, Path(root).expanduser() / "privacy" / "deny.txt")
+    for path in old:
+        if path.is_file():
+            return path, f"old name {path} - please rename it to {current}"
+    return current, ""
+
+
+def allow_list_path(environ: dict[str, str], deny: Path) -> Path:
+    """Return the allow list to use.
+
+    Args:
+        environ: Environment variables.
+        deny: The deny list in use.
+
+    Returns:
+        Path of the allow list (it may not exist).
+    """
+    explicit = environ.get("SCANBENCH_PRIVACY_ALLOW", "")
+    return Path(explicit).expanduser() if explicit else deny.with_name("allowlist.txt")
+
+
+def load_entries(path: Path) -> list[str]:
+    """Read a list file.
+
+    Args:
+        path: List file; a missing file gives an empty list.
+
+    Returns:
+        Lower-case entries without comments and blank lines.
+    """
+    if not path.is_file():
+        return []
+    entries = []
     for line in path.read_text(encoding="utf-8").splitlines():
-        term = line.split("#", 1)[0].strip().lower()
-        if term:
-            terms.append(term)
-    return terms
+        entry = line.split("#", 1)[0].strip().lower()
+        if entry:
+            entries.append(entry)
+    return entries
 
 
 def git(*args: str) -> str:
@@ -62,6 +133,17 @@ def git(*args: str) -> str:
     """
     exe = shutil.which("git") or "git"
     return subprocess.run([exe, *args], capture_output=True, text=True, check=True).stdout
+
+
+def has_commits() -> bool:
+    """Tell whether the repository has a commit (a fresh one has none).
+
+    Returns:
+        True if ``HEAD`` exists.
+    """
+    exe = shutil.which("git") or "git"
+    return subprocess.run([exe, "rev-parse", "--verify", "-q", "HEAD"],
+                          capture_output=True, check=False).returncode == 0
 
 
 def file_text(path: Path) -> str:
@@ -81,8 +163,8 @@ def file_text(path: Path) -> str:
     return path.read_bytes().decode("utf-8", errors="ignore")
 
 
-def findings(terms: list[str]) -> list[str]:
-    """Search paths, contents and commit messages for the terms.
+def file_findings(terms: list[str]) -> list[str]:
+    """Search tracked paths and contents for the terms.
 
     Args:
         terms: Lower-case deny terms.
@@ -95,18 +177,80 @@ def findings(terms: list[str]) -> list[str]:
         path = Path(name)
         if not path.is_file():
             continue
-        text = file_text(path).lower()
+        text = "" if name in SAMPLES else file_text(path).lower()
         for term in terms:
             if term in name.lower():
                 found.append(f"path      {name}: '{term}'")
             if term in text:
                 found.append(f"content   {name}: '{term}'")
-    # A fresh repository has no commits yet; git log would fail there.
-    exe = shutil.which("git") or "git"
-    has_commits = subprocess.run([exe, "rev-parse", "--verify", "-q", "HEAD"],
-                                 capture_output=True, check=False).returncode == 0
-    log = git("log", "--format=%B", "--all").lower() if has_commits else ""
-    found.extend(f"commit    message contains '{t}'" for t in terms if t in log)
+    return found
+
+
+def identities() -> Counter[tuple[str, str, str]]:
+    """Collect author, committer and tagger identities of the whole history.
+
+    Returns:
+        Count per (role, name, lower-case e-mail address).
+    """
+    found: Counter[tuple[str, str, str]] = Counter()
+    fmt = SEP.join(("%an", "%ae", "%cn", "%ce"))
+    for line in git("log", "--all", f"--format={fmt}").splitlines():
+        author, a_mail, committer, c_mail = line.split(SEP)
+        found[("author", author, a_mail.lower())] += 1
+        found[("committer", committer, c_mail.lower())] += 1
+    tag_fmt = "%(taggername)%1f%(taggeremail)"
+    for line in git("for-each-ref", f"--format={tag_fmt}", "refs/tags").splitlines():
+        tagger, mail = line.split(SEP)
+        if tagger:                      # lightweight tags have no tagger
+            found[("tagger", tagger, mail.strip("<>").lower())] += 1
+    return found
+
+
+def is_no_reply(mail: str) -> bool:
+    """Tell whether an address is a no-reply address.
+
+    Args:
+        mail: Lower-case e-mail address.
+
+    Returns:
+        True for GitHub per-user no-reply addresses and the shared ones.
+    """
+    return mail in NO_REPLY_ADDRESSES or mail.endswith(NO_REPLY_SUFFIXES)
+
+
+def identity_findings(terms: list[str], allowed: list[str]) -> list[str]:
+    """Check every identity against no-reply rule, allow list and terms.
+
+    Args:
+        terms: Lower-case deny terms.
+        allowed: Lower-case e-mail addresses from the allow list.
+
+    Returns:
+        One line per finding.
+    """
+    found = []
+    for (role, name, mail), count in sorted(identities().items()):
+        who = f"identity  {role} {name} <{mail}> ({count}x)"
+        if not is_no_reply(mail) and mail not in allowed:
+            found.append(f"{who}: no no-reply address and not in the allow list")
+        checked = name.lower() if mail in allowed else f"{name} {mail}".lower()
+        found.extend(f"{who}: '{term}'" for term in terms if term in checked)
+    return found
+
+
+def message_findings(terms: list[str]) -> list[str]:
+    """Search commit messages and tag annotations for the terms.
+
+    Args:
+        terms: Lower-case deny terms.
+
+    Returns:
+        One line per finding.
+    """
+    text = git("log", "--format=%B", "--all").lower()
+    tags = git("for-each-ref", "--format=%(contents)", "refs/tags").lower()
+    found = [f"commit    message contains '{t}'" for t in terms if t in text]
+    found.extend(f"tag       annotation contains '{t}'" for t in terms if t in tags)
     return found
 
 
@@ -114,17 +258,33 @@ def main() -> int:
     """Run the gate.
 
     Returns:
-        0 if nothing was found or no list exists, 1 on findings.
+        0 if nothing was found, 1 on findings, 2 without terms outside CI.
     """
-    path = deny_list_path()
-    if not path.is_file():
-        print(f"no deny list at {path}: gate neutral (PASS)")
-        return 0
-    terms = load_terms(path)
-    result = findings(terms)
+    environ = dict(os.environ)
+    deny, hint = deny_list_path(environ, Path.home())
+    terms = load_entries(deny)
+    if not terms:
+        if environ.get("CI") == "true":
+            print("CI: no private deny list here - privacy gate skipped (runs locally)")
+            return 0
+        allow = deny.with_name("allowlist.txt")
+        print(f"no terms in {deny}: nothing can be checked, gate FAILS.\n"
+              "Create the lists from the samples (see CONTRIBUTING.md):\n"
+              f"  mkdir -p {deny.parent}\n"
+              f"  cp -n examples/privacy/denylist.sample.txt {deny}\n"
+              f"  cp -n examples/privacy/allowlist.sample.txt {allow}\n"
+              f"  chmod 600 {deny} {allow}")
+        return 2
+    if hint:
+        print(hint)
+    allowed = load_entries(allow_list_path(environ, deny))
+    result = file_findings(terms)
+    if has_commits():
+        result += identity_findings(terms, allowed) + message_findings(terms)
     for line in result:
         print(line)
-    print(f"{len(terms)} terms checked, {len(result)} findings")
+    print(f"{len(terms)} terms, {len(allowed)} allowed addresses checked, "
+          f"{len(result)} findings")
     return 1 if result else 0
 
 

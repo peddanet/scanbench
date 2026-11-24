@@ -35,9 +35,16 @@ slowest job.
 
 ## Stages on the run page
 
-The job `gates` has one step per gate, named `[0] privacy` to `[5] tests`,
+The job `gates` has one step per gate, named `[0] privacy` to `[6] tests`,
 so the run page shows which gate failed without opening a log. The step
 `job summary` writes the stage table to the run's summary page.
+
+Two gates behave differently in CI by design: `[0] privacy` is skipped with a
+notice, because the private deny list exists only on the developer's machine
+(GitHub Actions sets `CI=true`); it runs locally in the pre-push hook. The
+check cache of `tools/check.sh` is off in CI, so every CI run checks in full.
+`[1] shell` needs ShellCheck, installed in the same apt step as the Qt
+libraries.
 
 ## Branch protection
 

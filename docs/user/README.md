@@ -451,8 +451,8 @@ Archives `scanbench-X.Y.Z-patch-N.tar.gz` in `~/Downloads` become releases with
 `scanbench update` in a terminal, or from the window with **scanbench >
 Update ...**, which runs `scanbench update --yes` and shows its output in a
 log window with a progress bar (`Step 3 of 7: 0.2.6: quality gates (local) -
-4 of 6 gates (2:15)`). Per version, ascending: branch `hotfix/X.Y.Z`
-from `main`, `git am`, all six gates locally, pull request into `main`
+4 of 7 gates (2:15)`). Per version, ascending: branch `hotfix/X.Y.Z`
+from `main`, `git am`, all seven gates locally, pull request into `main`
 (CI 1/3), tag `vX.Y.Z` (CI 2/3: Python matrix and release check), pull request
 back into `develop` (CI 3/3); finally the newest version is installed and the
 archives are moved to `<installation>/releases`. A failed run can be started

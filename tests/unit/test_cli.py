@@ -281,5 +281,5 @@ def test_line_buffered_keeps_the_order_in_a_pipe() -> None:
             "print('-- [2] step')")
     env = {k: v for k, v in os.environ.items() if k != "PYTHONUNBUFFERED"}
     done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
-                          env=env, check=True)
+                          env=env, check=True, timeout=60)
     assert done.stdout.splitlines() == ["-- [1] step", "== gate", "-- [2] step"]

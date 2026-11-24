@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from importlib import resources
 from pathlib import Path
 
-from scanbench.app_info import APP_ID
+from scanbench.app_info import APP_ID, ICON_FILE
 from scanbench.infrastructure.app_paths import AppPaths
 
 _FORBIDDEN_EXEC_CHARS = '"`$\\'
@@ -105,7 +105,7 @@ class DesktopInstaller:
         Returns:
             The written files.
         """
-        icon = resources.files("scanbench.resources").joinpath("icons", f"{APP_ID}.svg")
+        icon = resources.files("scanbench").joinpath("data", ICON_FILE)
         self.desktop_file.parent.mkdir(parents=True, exist_ok=True)
         self.icon_file.parent.mkdir(parents=True, exist_ok=True)
         self.desktop_file.write_text(self.render(), encoding="utf-8")

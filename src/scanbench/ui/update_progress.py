@@ -10,8 +10,8 @@ _PENDING = re.compile(r"^\s*pending: (.+)$")
 STEPS_PER_RELEASE = 5
 """Steps per archive: apply, gates, pull request into main, tag, back-merge."""
 
-GATES = 6
-"""Number of quality gates (privacy, format, lint, types, security, tests)."""
+GATES = 7
+"""Number of quality gates (privacy, shell, format, lint, types, security, tests)."""
 
 
 @dataclass
@@ -58,7 +58,7 @@ class UpdateProgress:
         """Describe the state in one line.
 
         Returns:
-            E.g. ``Step 3 of 7: 0.2.5: quality gates (local) - 4 of 6 gates``.
+            E.g. ``Step 3 of 7: 0.2.5: quality gates (local) - 4 of 7 gates``.
         """
         gates = f" - {self.gates} of {GATES} gates" if self.gates else ""
         return f"Step {self.step} of {self.total}: {self.title}{gates}"

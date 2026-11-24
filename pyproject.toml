@@ -50,7 +50,7 @@ version = { attr = "scanbench.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-scanbench = ["resources/*.in", "resources/icons/*.svg"]
+scanbench = ["resources/*.in", "data/*.svg"]
 
 # ---------------------------------------------------------------- gate 2: lint
 [tool.pylint.main]
@@ -87,7 +87,7 @@ default-docstring-type = "google"
 # --------------------------------------------------------------- gate 3: types
 [tool.mypy]
 files = ["src", "tests", "tools"]
-mypy_path = "tests"
+mypy_path = "tests:tools"
 strict = true
 
 [[tool.mypy.overrides]]

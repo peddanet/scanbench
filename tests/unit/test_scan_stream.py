@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 
 import pytest
+from child_wait import finish
 from PIL import Image
 
 from scanbench.domain.scan_error import ScanError
@@ -148,5 +149,5 @@ def test_shell_start_errors(tmp_path: Path) -> None:
     with pytest.raises(UpdateError):
         Shell(tmp_path / "missing", which=lambda name: name).start("true")
     process = Shell(tmp_path).start("true")
-    process.communicate()
+    finish(process)
     assert process.returncode == 0

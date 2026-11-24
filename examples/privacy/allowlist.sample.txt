@@ -1,0 +1,9 @@
+# Allow list of the privacy gate, one e-mail address per line.
+# Real file, never in the repository:
+#   ~/.config/scanbench/privacy/allowlist.txt   (mode 600)
+# Every author, committer and tagger of the history must use a no-reply
+# address (*@users.noreply.github.com, noreply@github.com,
+# noreply@anthropic.com) or be listed here. A listed address is accepted as
+# identity and exempt from the deny terms; the name still is checked.
+# Keep this list empty unless an old commit cannot be rewritten.
+amet.consectetur@example.org

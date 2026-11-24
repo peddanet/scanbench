@@ -45,7 +45,7 @@ class DevEnvironment:
         plain.run(pip, "install", "--quiet", "-e", ".[dev]")
 
     def gates(self) -> None:
-        """Run all six gates with live, staged output.
+        """Run all seven gates with live, staged output.
 
         Raises:
             UpdateError: If a gate fails.
