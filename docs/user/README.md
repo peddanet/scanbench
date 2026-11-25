@@ -74,21 +74,34 @@ A specific release: `bash install.sh v0.2.1`.
 
 ### 2.3 Where the installation goes
 
+scanbench follows the
+[XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/):
+each kind of file goes to the base folder of its category, then to a
+`scanbench` folder there (section 3 lists every file). The base folders come
+from the variables `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `XDG_DATA_HOME` and
+`XDG_CACHE_HOME`; unset (the normal case) they are `~/.config`,
+`~/.local/state`, `~/.local/share` and `~/.cache`.
+
 | Variable | Default | Meaning |
 |---|---|---|
-| `SCANBENCH_HOME` | `~/.local/share/scanbench` | root of the installation; if set, configuration, logs and cache move below it too |
 | `SCANBENCH_BIN` | `~/.local/bin` | directory of the `scanbench` launcher link |
 
-Everything in one folder below `~/scripts`:
+Each release gets its own venv, `~/.local/share/scanbench/venvs/X.Y.Z`; the
+link `venv` names the active one. A running scanbench keeps its own files
+while a newer release is installed next to it; the active and the previous
+release are kept.
 
-~~~bash
-export SCANBENCH_HOME=~/scripts/scanbench.d SCANBENCH_BIN=~/scripts
-bash install.sh
-~~~
-
-Put the `export` line into `~/.profile` as well. The launcher entry in the
-application menu carries both values itself, because programs started from
-the menu do not necessarily see `~/.profile`.
+**Older installations:** releases up to 0.3.x could keep everything in one
+folder (`SCANBENCH_HOME`, e.g. `~/scripts/scanbench.d`). This variable is no
+longer used. On its first start a new release moves settings, logs,
+sessions, patch archives, privacy lists and the update lock from such a
+folder (and from `~/.local/share/scanbench/config` and `logs`, written by
+older menu entries) into the XDG folders. It never overwrites a file, reports
+every move on the terminal and in
+`~/.local/state/scanbench/logs/layout-move.log`, and removes folders it
+emptied. Installed releases (`venvs/`) are not moved - install the release
+again with `install.sh`, then delete the old folder; the cache is not moved
+either (it is rebuilt).
 
 ### 2.4 Launcher entry
 
@@ -106,9 +119,10 @@ rm -r ~/.local/share/scanbench
 rm ~/.local/bin/scanbench
 ~~~
 
-Normal user, everything is in your home directory. Adjust the paths if you
-set `SCANBENCH_HOME` or `SCANBENCH_BIN`. Settings in `~/.config/scanbench`
-stay unless you delete them too.
+Normal user, everything is in your home directory. Adjust the last path if
+you set `SCANBENCH_BIN`. Settings in `~/.config/scanbench`, logs in
+`~/.local/state/scanbench` and the cache in `~/.cache/scanbench` stay unless
+you delete them too.
 
 ## 3. Starting, commands and files
 
@@ -128,15 +142,20 @@ bar shows the version; **scanbench > About scanbench** shows it as well.
 
 All commands run as normal user.
 
-| Content | Default | With `SCANBENCH_HOME` |
+| Content | Location (XDG default) | Category |
 |---|---|---|
-| Settings (album folder) | `~/.config/scanbench` | `$SCANBENCH_HOME/config` |
-| Logs: `scanbench.log` (start, end, every status text, errors with traceback; rotated at 1 MB, 5 files) and `crash.log` (call stacks after a hard crash) | `~/.local/state/scanbench/logs` | `$SCANBENCH_HOME/logs` |
-| Sessions and the handover to a new release | `~/.local/share/scanbench/sessions` | `$SCANBENCH_HOME/sessions` |
-| Raw scans of the running session, deleted on exit | `~/.cache/scanbench/session-*` | `$SCANBENCH_HOME/cache/session-*` |
-| Scanners and their options from the last run (`devices.json`; may be deleted, it is rebuilt) | `~/.cache/scanbench` | `$SCANBENCH_HOME/cache` |
-| Installed releases | `~/.local/share/scanbench/venvs/X.Y.Z`, active one linked as `venv` | `$SCANBENCH_HOME/venvs/X.Y.Z` |
-| Applied patch archives | `~/.local/share/scanbench/releases` | `$SCANBENCH_HOME/releases` |
+| Settings and presets | `~/.config/scanbench` | configuration |
+| Logs: `scanbench.log` (start, end, every status text, errors with traceback; rotated at 1 MB, 5 files), `crash.log` (call stacks after a hard crash), `layout-move.log` (moves from an older installation) | `~/.local/state/scanbench/logs` | state |
+| Lock against two updates at the same time | `~/.local/state/scanbench/update.lock` | state |
+| Sessions and the handover to a new release | `~/.local/share/scanbench/sessions` | data |
+| Installed releases | `~/.local/share/scanbench/venvs/X.Y.Z`, active one linked as `venv` | data |
+| Applied patch archives | `~/.local/share/scanbench/releases` | data |
+| Raw scans of the running session, deleted on exit | `~/.cache/scanbench/session-*` | cache |
+| Scanners and their options from the last run (`devices.json`; may be deleted, it is rebuilt) | `~/.cache/scanbench` | cache |
+
+Back up `~/.config/scanbench`, `~/.local/state/scanbench` and
+`~/.local/share/scanbench` without `venvs/` (install releases again with
+`install.sh`); the cache needs no backup.
 
 ## 4. Choosing the scanner
 
@@ -498,11 +517,11 @@ It shows version, directories and every external program with its location
 or the package to install.
 
 **After a crash or an error**, send the end of the logs (normal user, reads
-only; without `SCANBENCH_HOME` the folder is `~/.local/state/scanbench/logs`):
+only):
 
 ~~~bash
-tail -n 80 "${SCANBENCH_HOME:-$HOME/.local/state/scanbench}/logs/scanbench.log"
-tail -n 80 "${SCANBENCH_HOME:-$HOME/.local/state/scanbench}/logs/crash.log"
+tail -n 80 "${XDG_STATE_HOME:-$HOME/.local/state}/scanbench/logs/scanbench.log"
+tail -n 80 "${XDG_STATE_HOME:-$HOME/.local/state}/scanbench/logs/crash.log"
 ~~~
 
 | Problem | Check |
@@ -550,8 +569,8 @@ Files (normal user; editable by hand, format [TOML](https://toml.io/en/v1.0.0)):
 
 | File | Content |
 |---|---|
-| `~/.config/scanbench/settings.toml` (with `SCANBENCH_HOME`: `$SCANBENCH_HOME/config/settings.toml`) | your defaults |
-| `…/config/presets/<tab>-<name>.toml` | one preset each |
+| `~/.config/scanbench/settings.toml` | your defaults |
+| `~/.config/scanbench/presets/<tab>-<name>.toml` | one preset each |
 
 ~~~toml
 schema = 1

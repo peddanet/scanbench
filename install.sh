@@ -3,14 +3,17 @@
 #
 # Usage: bash install.sh [vX.Y.Z]      (without argument: newest release tag)
 #
-# Layout: $SCANBENCH_HOME/venvs/X.Y.Z per release, $SCANBENCH_HOME/venv as a
-# link to the active one; the active and the previous release are kept.
+# Layout (XDG): $XDG_DATA_HOME/scanbench/venvs/X.Y.Z per release (default
+# ~/.local/share/scanbench), "venv" there as a link to the active one; the
+# active and the previous release are kept. One venv per release on purpose
+# (deviation from dev-conventions v8, CONTRIBUTING.md): a running scanbench
+# keeps its own files while a newer release is installed next to it.
 #
 # Environment (all optional):
-#   SCANBENCH_HOME  root of the installation; default $XDG_DATA_HOME/scanbench
-#                   (~/.local/share/scanbench). Example: ~/scripts/scanbench.d
 #   SCANBENCH_BIN   directory for the launcher link; default ~/.local/bin
 #   SCANBENCH_REPO  git URL; default https://github.com/peddanet/scanbench.git
+# SCANBENCH_HOME of older releases is ignored; scanbench moves old files into
+# the XDG folders on its first start.
 #
 # Privilege level: normal user. Everything is written below the home
 # directory; "sudo pip" would write into the system Python, which PEP 668
@@ -19,10 +22,13 @@
 set -euo pipefail
 
 REPO="${SCANBENCH_REPO:-https://github.com/peddanet/scanbench.git}"
-ROOT="${SCANBENCH_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/scanbench}"
+DATA="${XDG_DATA_HOME:-}"
+[[ "$DATA" == /* ]] || DATA="$HOME/.local/share"   # XDG: relative values are invalid
+ROOT="$DATA/scanbench"
 BIN="${SCANBENCH_BIN:-$HOME/.local/bin}"
-ROOT="${ROOT/#\~/$HOME}"
 BIN="${BIN/#\~/$HOME}"
+[[ -z "${SCANBENCH_HOME:-}" ]] \
+  || echo "Note: SCANBENCH_HOME is no longer used; installing into $ROOT"
 
 die() { echo "install.sh: $*" >&2; exit 1; }
 
@@ -71,8 +77,10 @@ done
 #    valid across releases (desktop file and icon below ~/.local/share).
 mkdir -p "$BIN"
 ln -sfn "$ROOT/venv/bin/scanbench" "$BIN/scanbench"
-SCANBENCH_HOME="$ROOT" SCANBENCH_BIN="$BIN" \
-  "$ROOT/venv/bin/scanbench" install-desktop --exec "$ROOT/venv/bin/scanbench"
+#    The menu entry carries no data paths; SCANBENCH_BIN only if it was set
+#    in the environment. The first start of the new release here also moves
+#    files of the old single-root layout (reported on the terminal).
+"$ROOT/venv/bin/scanbench" install-desktop --exec "$ROOT/venv/bin/scanbench"
 echo "Done: $REPORTED, launcher $BIN/scanbench"
 case ":$PATH:" in
   *":$BIN:"*) ;;

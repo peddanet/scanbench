@@ -114,7 +114,7 @@ def test_desktop_entry_points_into_the_venv(tmp_path: Path) -> None:
     Args:
         tmp_path: Temporary directory of the test.
     """
-    _cli(tmp_path, Recorder()).run(["install-desktop"])  # SCANBENCH_HOME unset in tests
+    _cli(tmp_path, Recorder()).run(["install-desktop"])  # SCANBENCH_BIN unset in tests
     desktop = next((tmp_path / ".local/share/applications").glob("*.desktop"))
     assert f"Exec={Path(sys.prefix) / 'bin' / 'scanbench'}\n" in desktop.read_text(encoding="utf-8")
 
@@ -204,7 +204,7 @@ def test_chooser(tmp_path: Path) -> None:
 
 
 def test_install_desktop_exec_and_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """--exec, SCANBENCH_HOME and SCANBENCH_BIN end up in the Exec key.
+    """--exec and SCANBENCH_BIN end up in the Exec key; SCANBENCH_HOME does not.
 
     Args:
         tmp_path: Temporary directory of the test.
@@ -215,8 +215,7 @@ def test_install_desktop_exec_and_home(tmp_path: Path, monkeypatch: pytest.Monke
     _cli(tmp_path, Recorder()).run(["install-desktop", "--exec", "/opt/sb.d/venv/bin/scanbench"])
     desktop = next((tmp_path / ".local/share/applications").glob("*.desktop"))
     text = desktop.read_text(encoding="utf-8")
-    assert ("Exec=env SCANBENCH_BIN=/opt/bin SCANBENCH_HOME=/opt/sb.d "
-            "/opt/sb.d/venv/bin/scanbench\n") in text
+    assert "Exec=env SCANBENCH_BIN=/opt/bin /opt/sb.d/venv/bin/scanbench\n" in text
 
 
 def _scanning_cli(tmp_path: Path, rec: Recorder, shell: FakeShell) -> Cli:

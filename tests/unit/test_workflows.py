@@ -58,7 +58,7 @@ def _context(tmp_path: Path, released: Version | None, active: Version | None,
     out: list[str] = []
     clone = tmp_path / "clone"
     (clone / ".git").mkdir(parents=True, exist_ok=True)
-    paths = AppPaths({"SCANBENCH_HOME": str(tmp_path / "sb")}, tmp_path)
+    paths = AppPaths({"XDG_DATA_HOME": str(tmp_path / "sb")}, tmp_path)
     versions = FakeVersions(released, released or Version(0, 1, 0))
     state = state or GitState()
     git = FakeGit(log, versions, clone, state.remote, state)

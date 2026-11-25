@@ -126,7 +126,7 @@ def test_watcher_reports_newer_release_once(tmp_path: Path, qtbot: QtBot) -> Non
         tmp_path: Temporary directory of the test.
         qtbot: pytest-qt helper that owns the widgets.
     """
-    paths = AppPaths({"SCANBENCH_HOME": str(tmp_path)}, tmp_path)
+    paths = AppPaths({}, tmp_path)
     watcher = ReleaseWatcher(paths.release.venv_link, Version(1, 0, 0), interval_ms=60_000)
     seen: list[str] = []
     watcher.new_release.connect(seen.append)
@@ -185,7 +185,7 @@ def test_release_window_switches_after_update(tmp_path: Path, qtbot: QtBot,
         qtbot: Waits for the initial scanner search.
         monkeypatch: Replaces process start, quit and the dialog start.
     """
-    paths = AppPaths({"SCANBENCH_HOME": str(tmp_path)}, tmp_path)
+    paths = AppPaths({}, tmp_path)
     started: list[str] = []
 
     def start_detached(program: str, args: list[str]) -> tuple[bool, int]:
@@ -263,7 +263,7 @@ def test_switch_hands_over_the_open_work(tmp_path: Path, qtbot: QtBot,
         qtbot: Waits for the scanner searches.
         monkeypatch: Replaces process start and quit.
     """
-    paths = AppPaths({"SCANBENCH_HOME": str(tmp_path)}, tmp_path)
+    paths = AppPaths({}, tmp_path)
     results = [False, True]
     monkeypatch.setattr(QProcess, "startDetached", lambda _p, _a: (results.pop(0), 0))
     monkeypatch.setattr(QApplication, "quit", lambda: None)

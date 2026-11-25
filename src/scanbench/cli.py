@@ -18,6 +18,7 @@ from scanbench.domain.scan_error import ScanError
 from scanbench.infrastructure.archive_finder import ArchiveFinder
 from scanbench.infrastructure.cups_client import CupsClient
 from scanbench.infrastructure.desktop_installer import DesktopInstaller
+from scanbench.infrastructure.legacy_layout import LegacyLayout
 from scanbench.infrastructure.scanimage_backend import ScanimageBackend
 from scanbench.infrastructure.shell import Shell
 from scanbench.infrastructure.tool_probe import ToolProbe
@@ -28,8 +29,10 @@ from scanbench.wiring import release_context
 GuiRunner = Callable[[str, AppPaths, bool], int]
 """Starts the GUI: (version text, paths, is installed release) -> exit status."""
 
-PASSED_VARIABLES = ("SCANBENCH_HOME", "SCANBENCH_BIN")
-"""Installation settings the launcher entry passes on to the program."""
+PASSED_VARIABLES = ("SCANBENCH_BIN",)
+"""Installation setting the launcher entry passes on to the program, so an
+update started from the menu puts the ``scanbench`` link where ``install.sh``
+put it. Data locations are not passed: they follow the XDG variables."""
 
 DEFAULT_REPO = "peddanet/scanbench"
 """GitHub repository used by ``scanbench publish``."""
@@ -284,6 +287,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     line_buffered()
     paths = AppPaths(os.environ, Path.home())
+    for line in LegacyLayout(paths, os.environ).run():
+        print(f"scanbench: {line}", file=sys.stderr)
     version = VersionInfo(Path(scanbench.__file__).resolve().parent)
     cli = Cli(paths, version, _run_gui)
     return cli.run(sys.argv[1:] if argv is None else argv)

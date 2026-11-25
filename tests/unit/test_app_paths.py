@@ -33,13 +33,15 @@ def test_relative_xdg_value_is_ignored() -> None:
     assert paths.config_dir == HOME / ".config/scanbench"
 
 
-def test_single_root_layout() -> None:
-    """SCANBENCH_HOME moves config, logs and release, but not desktop files."""
+def test_state_cache_sessions_and_lock() -> None:
+    """State, lock, cache and sessions follow XDG; SCANBENCH_HOME is ignored."""
     paths = AppPaths({"SCANBENCH_HOME": "/opt/sb.d"}, HOME)
-    assert paths.config_dir == Path("/opt/sb.d/config")
-    assert paths.log_dir == Path("/opt/sb.d/logs")
-    assert paths.release_dir == Path("/opt/sb.d")
-    assert paths.applications_dir == HOME / ".local/share/applications"
+    assert paths.home == HOME
+    assert paths.log_dir == HOME / ".local/state/scanbench/logs"
+    assert paths.release.lock_file == HOME / ".local/state/scanbench/update.lock"
+    assert paths.cache_dir == HOME / ".cache/scanbench"
+    assert paths.sessions_dir == HOME / ".local/share/scanbench/sessions"
+    assert paths.release_dir == HOME / ".local/share/scanbench"
 
 
 def test_clone_and_downloads() -> None:

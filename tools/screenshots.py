@@ -371,7 +371,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         setattr(workbench_module, "ScanimageBackend", SampleScanner)  # reference device
-        bench = workbench_module.build_workbench(AppPaths({"SCANBENCH_HOME": tmp}, work))
+        bench = workbench_module.build_workbench(AppPaths({}, Path(tmp)))
         window = MainWindow(scanbench.__version__, tabs=(bench.documents, bench.photos),
                             header=bench.devices)
         window.resize(1280, 820)

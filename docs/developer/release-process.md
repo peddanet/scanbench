@@ -105,7 +105,7 @@ simplification for a single maintainer.
 | local gates | run in `<clone>/.venv`, created and refreshed by the update; the push afterwards skips the pre-push hook because the same commit was just checked |
 | resumable | each step checks the state first (version on `origin/main`, existing tag, open pull request, merged state) |
 | network | reading `git` and `gh` calls are retried 5 times, 10 s apart |
-| parallel runs | prevented by an exclusive lock on `<release dir>/update.lock` |
+| parallel runs | prevented by an exclusive lock on `~/.local/state/scanbench/update.lock` |
 | after the update | newest release installed into its own venv, link switched, archives moved to `<release dir>/releases` |
 
 The equivalent manual commands are the feature-release and tag blocks above.

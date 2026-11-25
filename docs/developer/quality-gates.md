@@ -116,7 +116,7 @@ content: `examples/privacy/`.
 
 | List | Location, first match wins | Content |
 |---|---|---|
-| deny list | `$SCANBENCH_PRIVACY_DENY`; `$XDG_CONFIG_HOME/scanbench/privacy/denylist.txt` (default `~/.config/scanbench/privacy/`); still read with a hint to rename: `$SCANBENCH_HOME/privacy/deny.txt`, `~/.config/scanbench/privacy/deny.txt` | forbidden terms, at least 3 characters: real name, host names, user names, IP addresses, private e-mail addresses, album and folder names |
+| deny list | `$SCANBENCH_PRIVACY_DENY`; `$XDG_CONFIG_HOME/scanbench/privacy/denylist.txt` (default `~/.config/scanbench/privacy/`); still read with a hint to rename: `~/.config/scanbench/privacy/deny.txt` | forbidden terms, at least 3 characters: real name, host names, user names, IP addresses, private e-mail addresses, album and folder names |
 | allow list | `$SCANBENCH_PRIVACY_ALLOW`; else `allowlist.txt` next to the deny list | allowed phrases in which a term is permitted (the term `level` inside `sea level`); an e-mail address alone on its line is accepted as identity |
 
 Matching rules:

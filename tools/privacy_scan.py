@@ -11,9 +11,8 @@ line, ``#`` starts a comment (samples with invented content: ``examples/privacy/
 
 * deny list (forbidden terms, at least 3 characters): ``$SCANBENCH_PRIVACY_DENY``
   if set, else ``$XDG_CONFIG_HOME/scanbench/privacy/denylist.txt``
-  (default ``~/.config/scanbench/privacy/``). The older name
-  ``privacy/deny.txt`` (below ``$SCANBENCH_HOME`` or ``~/.config/scanbench``)
-  is still read, with a hint to rename it;
+  (default ``~/.config/scanbench/privacy/``). The older name ``deny.txt`` in
+  the same folder is still read, with a hint to rename it;
 * allow list (allowed phrases): ``$SCANBENCH_PRIVACY_ALLOW`` if set, else
   ``allowlist.txt`` next to the deny list. Allowed phrases are blanked out
   before the search, so a term stays forbidden everywhere except inside an
@@ -88,13 +87,9 @@ def deny_list_path(environ: dict[str, str], home: Path) -> tuple[Path, str]:
     current = config_dir(environ, home) / "privacy" / "denylist.txt"
     if current.is_file():
         return current, ""
-    old = [config_dir(environ, home) / "privacy" / "deny.txt"]
-    root = environ.get("SCANBENCH_HOME", "")
-    if root:
-        old.insert(0, Path(root).expanduser() / "privacy" / "deny.txt")
-    for path in old:
-        if path.is_file():
-            return path, f"old name {path} - please rename it to {current}"
+    old = current.with_name("deny.txt")
+    if old.is_file():
+        return old, f"old name {old} - please rename it to {current}"
     return current, ""
 
 

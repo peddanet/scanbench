@@ -64,7 +64,7 @@ class SettingsFiles:
         """Store the location.
 
         Args:
-            config_dir: E.g. ``~/.config/scanbench`` or ``$SCANBENCH_HOME/config``.
+            config_dir: E.g. ``~/.config/scanbench``.
         """
         self.path = config_dir / "settings.toml"
         self.presets_dir = config_dir / "presets"
