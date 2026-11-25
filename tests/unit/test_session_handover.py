@@ -64,7 +64,7 @@ def test_empty_and_broken(tmp_path: Path) -> None:
 
 
 def test_sessions_dir() -> None:
-    """Sessions live below SCANBENCH_HOME or in the XDG data directory."""
+    """Sessions live in the XDG data directory."""
     home = Path("/home/u")
-    assert AppPaths({"SCANBENCH_HOME": "/opt/sb"}, home).sessions_dir == Path("/opt/sb/sessions")
+    assert AppPaths({"XDG_DATA_HOME": "/d"}, home).sessions_dir == Path("/d/scanbench/sessions")
     assert AppPaths({}, home).sessions_dir == home / ".local/share/scanbench/sessions"

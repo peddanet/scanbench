@@ -26,8 +26,8 @@ class DesktopInstaller:
         Args:
             paths: Resolver of the target directories.
             exec_path: Absolute path of the ``scanbench`` launcher.
-            env: Variables to pass to the program, e.g. ``SCANBENCH_HOME`` and
-                ``SCANBENCH_BIN``. A program started from the menu does not
+            env: Variables to pass to the program, e.g. ``SCANBENCH_BIN``.
+                A program started from the menu does not
                 necessarily see variables set in ``~/.profile``, so the entry
                 carries the values itself; an update started in the GUI then
                 installs into the same places as one started in a terminal.

@@ -71,7 +71,8 @@ bash install.sh
 | 3 | lets you read it before running it | normal user |
 | 4 | installs the newest release into its own venv below `~/.local/share/scanbench`, links `~/.local/bin/scanbench`, adds the menu entry | normal user: writes only below your home directory |
 
-Other locations: set `SCANBENCH_HOME` and `SCANBENCH_BIN` before step 4
+Folders follow the XDG layout; another directory for the launcher link:
+set `SCANBENCH_BIN` before step 4
 ([user guide, section 2.3](docs/user/README.md#23-where-the-installation-goes)).
 Package names are those of Debian and Ubuntu (including Pop!_OS).
 

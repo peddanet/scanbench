@@ -32,7 +32,7 @@ class AppLog:
         """Store the directory.
 
         Args:
-            log_dir: E.g. ``$SCANBENCH_HOME/logs``.
+            log_dir: E.g. ``~/.local/state/scanbench/logs``.
         """
         self.log_dir = log_dir
         self._handler: RotatingFileHandler | None = None

@@ -194,13 +194,8 @@ def test_list_locations(tmp_path: Path) -> None:
     old_config.write_text("term\n", encoding="utf-8")
     path, hint = privacy_scan.deny_list_path({}, home)
     assert path == old_config and "rename" in hint
-    root = tmp_path / "root"
-    (root / "privacy").mkdir(parents=True)
-    (root / "privacy" / "deny.txt").write_text("term\n", encoding="utf-8")
-    assert privacy_scan.deny_list_path({"SCANBENCH_HOME": str(root)}, home)[0] \
-        == root / "privacy" / "deny.txt"
     current.write_text("term\n", encoding="utf-8")
-    assert privacy_scan.deny_list_path({"SCANBENCH_HOME": str(root)}, home) == (current, "")
+    assert privacy_scan.deny_list_path({}, home) == (current, "")
     assert privacy_scan.allow_list_path({}, current) == current.with_name("allowlist.txt")
     assert privacy_scan.allow_list_path({"SCANBENCH_PRIVACY_ALLOW": "/a"}, current) \
         == Path("/a")
@@ -228,13 +223,12 @@ def test_main_reads_the_lists_and_prints_the_hint(tmp_path: Path,
         monkeypatch: Sets the environment for the test.
         capsys: Captures standard output.
     """
-    root = tmp_path / "root"
-    (root / "privacy").mkdir(parents=True)
-    (root / "privacy" / "deny.txt").write_text("zzqqxxunlikelyterm\n", encoding="utf-8")
+    old = tmp_path / "home" / ".config" / "scanbench" / "privacy" / "deny.txt"
+    old.parent.mkdir(parents=True)
+    old.write_text("zzqqxxunlikelyterm\n", encoding="utf-8")
     monkeypatch.delenv("SCANBENCH_PRIVACY_DENY", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "home" / ".config"))
-    monkeypatch.setenv("SCANBENCH_HOME", str(root))
     assert privacy_scan.main() in (0, 1)                # this repository's own history
     out = capsys.readouterr().out
     assert "please rename it" in out and "1 term(s)" in out

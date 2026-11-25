@@ -11,13 +11,16 @@ class ReleaseLayout:
     newer release is installed next to it.
     """
 
-    def __init__(self, root: Path) -> None:
-        """Store the release directory.
+    def __init__(self, root: Path, lock_file: Path) -> None:
+        """Store the release directory and the lock file.
 
         Args:
             root: The release directory, e.g. ``~/.local/share/scanbench``.
+            lock_file: Lock file that prevents parallel updates, e.g.
+                ``~/.local/state/scanbench/update.lock`` (state, not data).
         """
         self.root = root
+        self.lock_file = lock_file
 
     @property
     def venv_link(self) -> Path:
@@ -45,12 +48,3 @@ class ReleaseLayout:
             ``<root>/releases``.
         """
         return self.root / "releases"
-
-    @property
-    def lock_file(self) -> Path:
-        """Lock file that prevents parallel updates.
-
-        Returns:
-            ``<root>/update.lock``.
-        """
-        return self.root / "update.lock"

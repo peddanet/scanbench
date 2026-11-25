@@ -45,7 +45,8 @@ class SessionHandover:
         """Store the location.
 
         Args:
-            directory: Handover directory, e.g. ``$SCANBENCH_HOME/sessions/handover``.
+            directory: Handover directory, e.g.
+                ``~/.local/share/scanbench/sessions/handover``.
         """
         self.directory = directory
 

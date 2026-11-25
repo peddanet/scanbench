@@ -24,8 +24,8 @@ A fresh clone is enough to develop, test, release and install scanbench.
 Files that hold private or machine-specific data live outside the clone and
 never in the repository; each has a sample with invented content in
 [`examples/`](examples/). Where the folders `.config`, `.local/state`,
-`.local/share` and `.cache` come from and what `SCANBENCH_HOME` changes:
-[user guide, section 3](docs/user/README.md#3-starting-commands-and-files).
+`.local/share` and `.cache` come from (XDG layout):
+[user guide, sections 2.3 and 3](docs/user/README.md#23-where-the-installation-goes).
 
 | Path on the machine | Written by | Sample in the repository | Needed for |
 |---|---|---|---|
@@ -35,12 +35,24 @@ never in the repository; each has a sample with invented content in
 | `~/.config/scanbench/presets/<tab>-<name>.toml` | scanbench ("Save as preset") | `examples/presets/photos-album-600-dpi-png.toml.sample` | named presets per tab |
 | `~/.cache/scanbench/devices.json` | scanbench | none (rebuilt on the next start) | scanners and their options |
 | `~/.local/state/scanbench/logs/` | scanbench | none (log files) | troubleshooting |
-| `~/.local/share/scanbench/` | `install.sh`, `scanbench update` | none (installed releases, sessions) | running the installed release |
+| `~/.local/state/scanbench/update.lock` | `scanbench update` | none (empty lock file) | no two updates at the same time |
+| `~/.local/share/scanbench/` | `install.sh`, `scanbench update` | none (installed releases, sessions, patch archives) | running the installed release |
 | `.venv/`, `.gates/`, `.git/checked-trees` in the clone | you, `tools/check.sh` | none (ignored by git) | development venv, gate logs, check cache |
 
-With `SCANBENCH_HOME` set, configuration, logs, cache and sessions move below
-that folder (user guide, section 3); the privacy lists are also still read
-from the older name `$SCANBENCH_HOME/privacy/deny.txt`, with a hint to rename.
+The single-root layout of older releases (`SCANBENCH_HOME`) is gone; a new
+release moves its files once (user guide, section 2.3). The privacy scan
+still reads the older name `~/.config/scanbench/privacy/deny.txt`, with a
+hint to rename it.
+
+**Deviation from dev-conventions v8, on purpose:** v8 installs into one venv,
+`~/.local/share/<tool>/venv/`. scanbench keeps one venv per release,
+`~/.local/share/scanbench/venvs/X.Y.Z`, with `venv` as a link to the active
+one. Reason: the GUI loads parts of its code only when needed; replacing the
+files of the running release could mix two releases in one process. A new
+release is installed next to the running one, the link is switched, and the
+running GUI keeps its own files until it ends; the active and the previous
+release are kept. Commands and the menu entry use the stable path
+`~/.local/share/scanbench/venv/bin/scanbench`, so they work as v8 expects.
 
 Create the privacy lists once per machine (normal user; `cp -n` never
 overwrites an existing list, `chmod 600` makes them readable for you only),

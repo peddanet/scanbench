@@ -8,18 +8,16 @@ from scanbench.infrastructure.release_layout import ReleaseLayout
 
 
 class AppPaths:
-    """Resolve all directories the application reads or writes.
+    """Resolve all directories the application reads or writes (XDG layout).
 
-    Two layouts are supported:
+    Category first, then tool (dev-conventions v8): configuration below
+    ``$XDG_CONFIG_HOME``, state (logs, update lock) below ``$XDG_STATE_HOME``,
+    re-creatable work files below ``$XDG_CACHE_HOME``, installed releases and
+    sessions below ``$XDG_DATA_HOME``. Desktop file and icon also go below
+    ``$XDG_DATA_HOME``, because desktop environments only search there.
 
-    * XDG layout (default): configuration below ``$XDG_CONFIG_HOME``, logs
-      below ``$XDG_STATE_HOME``, the installed release below
-      ``$XDG_DATA_HOME``.
-    * Single-root layout: if ``SCANBENCH_HOME`` is set, configuration, logs and
-      release all live below that one directory (e.g. ``~/scripts/scanbench.d``).
-
-    Desktop file and icon always go below ``$XDG_DATA_HOME``, because desktop
-    environments only search there.
+    The single-root layout of older releases (``SCANBENCH_HOME``) is no longer
+    supported; ``LegacyLayout`` moves its files here once.
     """
 
     def __init__(self, environ: Mapping[str, str], home: Path) -> None:
@@ -31,6 +29,7 @@ class AppPaths:
         """
         self._environ = environ
         self._home = home
+        self.home = home
 
     def _xdg(self, variable: str, default: str) -> Path:
         """Return an XDG base directory, honouring an absolute override.
@@ -48,38 +47,31 @@ class AppPaths:
             return Path(value)
         return self._home / default
 
-    def _root(self) -> Path | None:
-        """Return the single-root directory if ``SCANBENCH_HOME`` is set.
-
-        Returns:
-            The expanded directory, or None for the XDG layout.
-        """
-        value = self._environ.get("SCANBENCH_HOME", "")
-        return Path(value).expanduser() if value else None
-
     @property
     def config_dir(self) -> Path:
-        """Directory of settings and device profiles.
+        """Directory of settings and presets.
 
         Returns:
-            The configuration directory.
+            ``$XDG_CONFIG_HOME/scanbench``.
         """
-        root = self._root()
-        if root is not None:
-            return root / "config"
         return self._xdg("XDG_CONFIG_HOME", ".config") / APP_NAME
+
+    def _state(self) -> Path:
+        """Return the directory of state that survives a restart.
+
+        Returns:
+            ``$XDG_STATE_HOME/scanbench``; holds ``logs/`` and the update lock.
+        """
+        return self._xdg("XDG_STATE_HOME", ".local/state") / APP_NAME
 
     @property
     def log_dir(self) -> Path:
         """Directory of log files.
 
         Returns:
-            The log directory.
+            ``$XDG_STATE_HOME/scanbench/logs``.
         """
-        root = self._root()
-        if root is not None:
-            return root / "logs"
-        return self._xdg("XDG_STATE_HOME", ".local/state") / APP_NAME / "logs"
+        return self._state() / "logs"
 
     @property
     def cache_dir(self) -> Path:
@@ -89,23 +81,17 @@ class AppPaths:
         which is a RAM file system on many distributions.
 
         Returns:
-            The cache directory.
+            ``$XDG_CACHE_HOME/scanbench``.
         """
-        root = self._root()
-        if root is not None:
-            return root / "cache"
         return self._xdg("XDG_CACHE_HOME", ".cache") / APP_NAME
 
     @property
     def release_dir(self) -> Path:
-        """Directory that holds the venv of the installed release.
+        """Directory that holds the venvs of the installed releases.
 
         Returns:
-            The release directory.
+            ``$XDG_DATA_HOME/scanbench``.
         """
-        root = self._root()
-        if root is not None:
-            return root
         return self._xdg("XDG_DATA_HOME", ".local/share") / APP_NAME
 
     @property
@@ -113,12 +99,9 @@ class AppPaths:
         """Directory of saved sessions and of the handover to a new release.
 
         Returns:
-            The sessions directory.
+            ``$XDG_DATA_HOME/scanbench/sessions``.
         """
-        root = self._root()
-        if root is not None:
-            return root / "sessions"
-        return self._xdg("XDG_DATA_HOME", ".local/share") / APP_NAME / "sessions"
+        return self.release_dir / "sessions"
 
     @property
     def applications_dir(self) -> Path:
@@ -144,9 +127,10 @@ class AppPaths:
         """Layout of the installation below the release directory.
 
         Returns:
-            Versioned venvs, active link, archive store and lock file.
+            Versioned venvs, active link, archive store and the update lock
+            (below ``$XDG_STATE_HOME/scanbench``).
         """
-        return ReleaseLayout(self.release_dir)
+        return ReleaseLayout(self.release_dir, self._state() / "update.lock")
 
     @property
     def clone_dir(self) -> Path:

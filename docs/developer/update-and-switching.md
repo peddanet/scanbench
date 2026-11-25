@@ -16,8 +16,9 @@ workflows are in the [release process](release-process.md).
 | `wiring.py` | -- | composition of the release workflows (`release_context`) |
 | `domain/tool_requirement.py` | `ToolRequirement` | an external program and its importance |
 | `application/doctor.py` | `Doctor` | diagnosis report of version, directories, programs |
-| `infrastructure/app_paths.py` | `AppPaths` | XDG layout or single root `SCANBENCH_HOME`; clone and download folder |
-| `infrastructure/release_layout.py` | `ReleaseLayout` | `venvs/X.Y.Z`, `venv` link, launcher, archive store, lock file |
+| `infrastructure/app_paths.py` | `AppPaths` | XDG layout (config, state with logs and update lock, cache, data); clone and download folder |
+| `infrastructure/legacy_layout.py` | `LegacyLayout` | one-time move of files of the old single-root layout (`SCANBENCH_HOME`) at program start |
+| `infrastructure/release_layout.py` | `ReleaseLayout` | `venvs/X.Y.Z`, `venv` link, launcher, archive store |
 | `infrastructure/version_info.py` | `VersionInfo` | version text with source-checkout marker |
 | `infrastructure/tool_probe.py` | `ToolProbe` | find programs on `PATH` (injectable lookup) |
 | `infrastructure/desktop_installer.py` | `DesktopInstaller` | write and remove desktop file and icon |
@@ -116,5 +117,5 @@ before it starts the new process; if the start fails, the handover is
 removed again. `GuiApplication.show` takes a waiting handover over
 (`SessionHandover.take`) and passes it to `Workbench.restore`. A broken
 `handover.json` is discarded. The directory is
-`AppPaths.sessions_dir / "handover"`: `$SCANBENCH_HOME/sessions/handover`
-or `~/.local/share/scanbench/sessions/handover`.
+`AppPaths.sessions_dir / "handover"`, i.e.
+`~/.local/share/scanbench/sessions/handover`.

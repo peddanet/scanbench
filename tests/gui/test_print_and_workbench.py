@@ -186,11 +186,11 @@ def test_workbench_builds_and_cleans_up(tmp_path: Path, qtbot: QtBot,
         monkeypatch: Enables the test device through the environment.
     """
     monkeypatch.setenv("SCANBENCH_TEST_DEVICE", "1")
-    bench = build_workbench(AppPaths({"SCANBENCH_HOME": str(tmp_path)}, tmp_path))
+    bench = build_workbench(AppPaths({}, tmp_path))
     for widget in (bench.devices, bench.documents, bench.photos):
         qtbot.addWidget(widget)
     work = Path(bench.work.name)
-    assert work.parent == tmp_path / "cache"
+    assert work.parent == tmp_path / ".cache" / "scanbench"
     bench.devices.refresh()
     idle(qtbot, bench.runner)
     assert bench.devices.combo.findData("test") >= 0

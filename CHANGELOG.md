@@ -36,6 +36,21 @@ All notable changes are documented here. The format follows
   `DISPLAY` or session bus; every wait for a child process is bounded.
 - The program icon moved to `src/scanbench/data/scanbench.svg`; installed
   file names are unchanged.
+- XDG layout only: `SCANBENCH_HOME` (everything in one folder, e.g.
+  `~/scripts/scanbench.d`) is no longer used. On its first start scanbench
+  moves settings, logs, sessions, patch archives, privacy lists and the
+  update lock from such a folder - and `config/` and `logs/` below
+  `~/.local/share/scanbench`, written by menu entries of older releases -
+  into the XDG folders; it never overwrites, reports every move (terminal and
+  `layout-move.log`) and removes emptied folders. Installed releases are not
+  moved.
+- The update lock moved to `~/.local/state/scanbench/update.lock`.
+
+### Fixed
+
+- The menu entry no longer sets `SCANBENCH_HOME`: started from the menu,
+  scanbench kept settings and logs below `~/.local/share/scanbench` instead
+  of the XDG folders used when started in a terminal.
 
 ## [0.3.3] - 2026-11-19
 

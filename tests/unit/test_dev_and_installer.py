@@ -78,7 +78,7 @@ def test_installer_active_version_and_install(tmp_path: Path) -> None:
     Args:
         tmp_path: Temporary directory of the test.
     """
-    paths = AppPaths({"SCANBENCH_HOME": str(tmp_path / "sb")}, tmp_path)
+    paths = AppPaths({"XDG_DATA_HOME": str(tmp_path / "sb")}, tmp_path)
     shell = FakeShell(tmp_path / "clone")
     installer = ReleaseInstaller(paths, shell)
     assert installer.active_version() is None
@@ -88,7 +88,7 @@ def test_installer_active_version_and_install(tmp_path: Path) -> None:
     assert installer.active_version() == Version(0, 2, 0)
     assert layout.stable_launcher == layout.root / "venv" / "bin" / "scanbench"
     assert layout.archive_store.name == "releases"
-    assert layout.lock_file.name == "update.lock"
+    assert layout.lock_file == tmp_path / ".local/state/scanbench/update.lock"
     installer.install(Version(0, 2, 0))
     assert shell.calls[-1] == ("bash", str(tmp_path / "clone" / "install.sh"), "v0.2.0")
     layout.venv_link.unlink()
