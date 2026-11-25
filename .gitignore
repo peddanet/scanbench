@@ -13,4 +13,4 @@ dist/
 gates.json
 # Local data never belongs into the repository
 *.local.ini
-privacy/
+/privacy/

@@ -1,23 +1,35 @@
 #!/usr/bin/env bash
-# tools/check.sh -- the six quality gates of scanbench, as numbered stages.
+# tools/check.sh -- the seven quality gates of scanbench, as numbered stages.
 #
 # Usage: tools/check.sh [--fast] [--full] [--json FILE] [--only GATE]
-#   --fast       skip gate 5 (tests) while editing
+#   --fast       skip gate 6 (tests) while editing
 #   --full       print the complete tool output of every gate inline
 #   --json FILE  write a machine-readable summary (used by CI and scripts)
-#   --only GATE  run one gate: privacy|format|lint|types|security|tests
+#   --only GATE  run one gate: privacy|shell|format|lint|types|security|tests
 #
 # The same script runs locally, in the pre-push hook and in CI. It stops at
 # the first failing gate. The full output of every gate is kept in
 # .gates/<timestamp>/<n>-<gate>.log for drill-down.
+# A tree that passed all gates before (same Python, same packages) is not
+# checked in full again: only privacy and shell run; CHECK_FULL=1 forces a
+# full run, CI (CI=true) always runs in full. Memory: .git/checked-trees.
 # Privilege level: normal user; writes only below the repository directory.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-GATES=(privacy format lint types security tests)
+# An active venv is used as it is; otherwise .venv of the project is
+# activated for this script only. CI has no .venv and installs directly.
+if [[ -z "${VIRTUAL_ENV:-}" && -f .venv/bin/activate ]]; then
+    # shellcheck disable=SC1091  # path chosen at run time
+    source .venv/bin/activate
+    echo "venv: .venv (activated for this check)"
+fi
+
+GATES=(privacy shell format lint types security tests)
 declare -A CMD=(
   [privacy]="python3 tools/privacy_scan.py"
+  [shell]="shellcheck install.sh tools/*.sh .githooks/pre-push"
   [format]="pycodestyle --max-line-length=100 src tests tools"
   [lint]="pylint src tests tools"
   [types]="mypy"
@@ -25,7 +37,7 @@ declare -A CMD=(
   [tests]="python3 -m pytest -q -p no:cacheprovider --cov=scanbench --cov-report=term"
 )
 declare -A TOOL=(
-  [privacy]="privacy_scan.py" [format]="pycodestyle, 100 columns"
+  [privacy]="privacy_scan.py" [shell]="shellcheck" [format]="pycodestyle, 100 columns"
   [lint]="pylint + docparams + mccabe" [types]="mypy --strict"
   [security]="bandit" [tests]="pytest, branch coverage >= 90 %"
 )
@@ -37,7 +49,7 @@ while (($#)); do
     --full) FULL=1 ;;
     --json) JSON="${2:?--json needs a file}"; shift ;;
     --only) ONLY="${2:?--only needs a gate}"; shift ;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -99,6 +111,34 @@ write_json() {
   } > "$JSON"
 }
 
+# Check cache (dev-conventions template check-cache.sh). Key = tree of the
+# working copy (uncommitted and untracked files included, .gitignore
+# honoured) + Python version + hash of the installed packages.
+CHECKED="$(git rev-parse --git-dir)/checked-trees"
+check_key() {
+  local idx tree
+  idx="$(mktemp)"
+  cp "$(git rev-parse --git-dir)/index" "$idx" 2>/dev/null || true
+  tree="$(GIT_INDEX_FILE="$idx" git add -A >/dev/null 2>&1 \
+          && GIT_INDEX_FILE="$idx" git write-tree)" || tree=""
+  rm -f "$idx"
+  [[ -n "$tree" ]] || return 1
+  printf '%s py%s deps-%s\n' "$tree" \
+    "$(python3 -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])')" \
+    "$(installed_packages | sha256sum | cut -c1-12)"
+}
+# Installed distributions with versions. importlib.metadata instead of the
+# template's "pip list": a venv made by uv has no pip, and an empty list would
+# hide package changes.
+installed_packages() {
+  python3 -c 'import importlib.metadata as m
+print("\n".join(sorted(f"{d.name}=={d.version}" for d in m.distributions())))'
+}
+KEY=""
+if [[ "${CI:-}" != "true" && "${CHECK_FULL:-0}" != "1" && -z "$ONLY" ]]; then
+  KEY="$(check_key)" || KEY=""
+fi
+
 T0=$EPOCHREALTIME
 rule "scanbench quality gates  $(date '+%Y-%m-%d %H:%M:%S')"
 failed=""
@@ -114,11 +154,25 @@ for n in "${!GATES[@]}"; do
     continue
   fi
   run_stage "$n" "$gate" || failed="[$n] $gate"
+  # After privacy and shell: a tree known to pass needs no further gates.
+  if [[ $gate == shell && -z "$failed" && -n "$KEY" && -f "$CHECKED" ]] \
+       && grep -qxF "$KEY" "$CHECKED"; then
+    printf '\nThis tree passed all gates before (%s).\n' "${KEY%% *}"
+    printf 'format, lint, types, security and tests skipped - CHECK_FULL=1 forces them.\n\n'
+    write_json
+    rule "RESULT: ${G}PASS${N} (known tree), ${#RESULTS[@]} stage(s) run"
+    exit 0
+  fi
 done
 write_json
 TOTAL=$(awk -v a="$T0" -v b="$EPOCHREALTIME" 'BEGIN { printf "%.1f", b - a }')
 if [[ -n "$failed" ]]; then
   rule "RESULT: ${R}FAIL${N} at $failed, ${#RESULTS[@]} stage(s) run, $TOTAL s"
   exit 1
+fi
+# Only a full run is remembered; the last 50 entries are kept.
+if [[ -n "$KEY" && $FAST -eq 0 ]]; then
+  { [[ -f "$CHECKED" ]] && tail -n 49 "$CHECKED"; echo "$KEY"; } > "$CHECKED.tmp"
+  mv "$CHECKED.tmp" "$CHECKED"
 fi
 rule "RESULT: ${G}PASS${N}, ${#RESULTS[@]} stage(s) run, $TOTAL s"

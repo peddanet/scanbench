@@ -1,0 +1,26 @@
+# Sample of the saved defaults (layer DEFAULT). Real file:
+#   $XDG_CONFIG_HOME/scanbench/settings.toml  (default ~/.config/scanbench/)
+#   or $SCANBENCH_HOME/config/settings.toml
+# It holds every option with its built-in value; tests/unit/test_examples.py
+# keeps it in step with src/scanbench/domain/settings_schema.py.
+# Options: user guide, section "Settings".
+schema = 1
+
+[documents]
+source = "FLATBED"
+colour = "COLOR"
+resolution = 300
+paper = "A4"
+pdf_size = "EBOOK"
+paper_white = true
+
+[photos]
+colour = "COLOR"
+resolution = 600
+format = "PNG"
+album = "~/Pictures/scanbench-album"
+snap = true
+keep_scans = false
+snap_tolerance = 6
+jpeg_quality = 92
+png_compression = 6

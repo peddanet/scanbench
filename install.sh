@@ -61,7 +61,8 @@ ln -sfn "venvs/$VERSION" "$ROOT/venv.new"
 mv -T "$ROOT/venv.new" "$ROOT/venv"
 
 # 5. Keep the active and the previous release, remove older ones.
-mapfile -t OLD < <(ls -1 "$ROOT/venvs" | sort -V | head -n -2)
+mapfile -t OLD < <(find "$ROOT/venvs" -mindepth 1 -maxdepth 1 -printf '%f\n' \
+                     | sort -V | head -n -2)
 for old in "${OLD[@]}"; do
   [[ "$old" == "$VERSION" ]] || rm -rf "${ROOT:?}/venvs/$old"
 done

@@ -10,7 +10,7 @@ from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
 from PySide6.QtWidgets import QApplication
 
 from scanbench import __version__
-from scanbench.app_info import APP_ID, APP_NAME
+from scanbench.app_info import APP_ID, APP_NAME, ICON_FILE
 from scanbench.application.session_handover import SessionHandover
 from scanbench.infrastructure.app_log import LOGGER, AppLog
 from scanbench.domain.version import Version
@@ -58,7 +58,7 @@ class GuiApplication:
         """
         app.setApplicationName(APP_NAME)
         app.setDesktopFileName(APP_ID)
-        svg = resources.files("scanbench.resources").joinpath("icons", f"{APP_ID}.svg")
+        svg = resources.files("scanbench").joinpath("data", ICON_FILE)
         pixmap = QPixmap()
         pixmap.loadFromData(svg.read_bytes(), "SVG")
         app.setWindowIcon(QIcon(pixmap))

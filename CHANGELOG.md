@@ -4,6 +4,39 @@ All notable changes are documented here. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), versions follow
 [Semantic Versioning 2.0.0](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Quality gate `[1] shell`: ShellCheck checks `install.sh`, `tools/*.sh` and
+  the pre-push hook, locally and in CI.
+- `tools/check.sh` checks each tree in full only once: a tree that passed all
+  gates with the same Python and packages runs only `privacy` and `shell`
+  again (`CHECK_FULL=1` forces a full run; CI always runs in full).
+- `examples/` with samples of every local file: settings, a preset, the
+  privacy deny and allow lists; tests keep them in step with the code.
+- CONTRIBUTING: table "Local files of a developer" with the copy commands for
+  the privacy lists.
+- `docs/images/social-preview.svg` and `.png` (GitHub preview, 1280 x 640),
+  rendered with `tools/social_preview.py`.
+
+### Changed
+
+- Privacy gate with the rules of mediatools: terms match whole words only,
+  an allow list of phrases permits a term inside them, author, committer and
+  tagger of the whole history must use a no-reply address (or be listed),
+  tag annotations are searched. Without deny terms it fails (exit status 2)
+  instead of passing neutrally; only CI skips it. Lists are named
+  `denylist.txt` and `allowlist.txt` in `~/.config/scanbench/privacy/`; the
+  old `deny.txt` is still read, with a hint to rename it.
+- `tools/check.sh` activates the project's `.venv` itself if no venv is
+  active.
+- Tests are isolated from the desktop and the user's data: temporary `HOME`,
+  XDG folders and runtime directory, a non-existent `WAYLAND_DISPLAY`, no
+  `DISPLAY` or session bus; every wait for a child process is bounded.
+- The program icon moved to `src/scanbench/data/scanbench.svg`; installed
+  file names are unchanged.
+
 ## [0.3.3] - 2026-11-19
 
 ### Fixed

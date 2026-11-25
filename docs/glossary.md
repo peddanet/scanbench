@@ -12,6 +12,11 @@ for photos.
 **airscan (sane-airscan)** -- SANE backend for network scanners speaking eSCL
 or WSD. [sane-airscan](https://github.com/alexpevzner/sane-airscan)
 
+**Allow list (privacy gate)** -- local file of phrases in which a deny-list
+term is permitted, and of e-mail addresses accepted as commit or tag
+identities although they are no no-reply address; see
+[quality gates](developer/quality-gates.md#privacy-gate-deny-list-and-allow-list).
+
 **Annotated tag** -- git tag with author, date and message; marks releases.
 [git-tag](https://git-scm.com/docs/git-tag)
 
@@ -32,9 +37,17 @@ without passing checks.
 changes; finds the shadow line around photos.
 [OpenCV tutorial](https://docs.opencv.org/4.x/da/d22/tutorial_py_canny.html)
 
+**Check cache** -- memory of `tools/check.sh` in `.git/checked-trees`: a
+tree that passed all gates with the same Python and packages is not checked
+in full again; see [quality gates](developer/quality-gates.md#each-tree-is-checked-in-full-once).
+
 **CUPS** -- printing system of Linux and macOS; scanbench uses its command
 line clients `lp`, `lpstat`, `lpoptions`.
 [CUPS documentation](https://openprinting.github.io/cups/doc/options.html)
+
+**Deny list (privacy gate)** -- local file of terms (names, host names,
+addresses) that must never appear in the repository; see
+[quality gates](developer/quality-gates.md#privacy-gate-deny-list-and-allow-list).
 
 **Deskew** -- turning a slightly skewed scan back to horizontal; scanbench
 rotates only, so results stay rectangles.
@@ -121,6 +134,11 @@ points (`cv2.minAreaRect`); gives position, size and skew of a photo.
 
 **mypy** -- static type checker for Python. [mypy](https://mypy.readthedocs.io/)
 
+**No-reply address** -- e-mail address provided by GitHub
+(`<ID>+<user>@users.noreply.github.com`) for commits, so no private address
+becomes public.
+[GitHub Docs](https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-email-preferences/setting-your-commit-email-address)
+
 **offscreen platform** -- Qt platform plugin that renders without a display;
 used for GUI tests. [pytest-qt troubleshooting](https://pytest-qt.readthedocs.io/en/latest/troubleshooting.html)
 
@@ -177,6 +195,13 @@ edge: a thin light line or an edge line; `FrameSplitter` cuts blobs there.
 **Settings layer** -- source of a setting value: built-in, default, preset or
 changed (this run); the highest layer that sets a value wins.
 [Settings](developer/settings.md)
+
+**ShellCheck** -- static analysis tool that finds bugs in shell scripts;
+gate `[1] shell`. [shellcheck.net](https://www.shellcheck.net/)
+
+**Social preview** -- picture GitHub shows when a repository link is shared;
+1280 x 640 pixels, PNG, JPG or GIF below 1 MB.
+[GitHub Docs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/customizing-your-repositorys-social-media-preview)
 
 **Source checkout** -- code run from a git clone instead of an installed
 release; scanbench marks it in its version text.

@@ -25,7 +25,8 @@ workflows are in the [release process](release-process.md).
 | `ui/main_window.py` | `MainWindow` | tabs, menu, busy state, safe release switching |
 | `ui/update_dialog.py` | `UpdateDialog` | runs `scanbench update --yes`, shows the output live |
 | `ui/release_watcher.py` | `ReleaseWatcher` | polls the `venv` link, signals newer releases |
-| `resources/` | -- | desktop file template, SVG icon (package data) |
+| `resources/` | -- | desktop file template (package data) |
+| `data/` | -- | program icon `scanbench.svg` (package data); installed as `<APP_ID>.svg` |
 
 ## Release workflows (update, publish)
 

@@ -1,0 +1,9 @@
+# Sample preset of the photo tab. Real files: presets/<tab>-<name>.toml next
+# to settings.toml; scanbench writes them under "Save as preset".
+schema = 1
+name = "Album 600 dpi PNG"
+
+[photos]
+resolution = 600
+format = "PNG"
+album = "/home/USER/Pictures/Lorem-ipsum-album"

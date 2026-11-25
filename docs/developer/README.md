@@ -14,7 +14,7 @@ Lead document of the developer documentation.
 | [Settings and presets](settings.md) | settings schema, layers, TOML files, settings form, presets, generated options table |
 | [GUI structure and threads](gui.md) | workbench, tabs, task runner, work directory, GUI tests |
 | [Coding standard](coding-standard.md) | rules and measurable limits enforced by the gates |
-| [Quality gates](quality-gates.md) | `tools/check.sh`, the six gates, staged output, pre-push hook |
+| [Quality gates](quality-gates.md) | `tools/check.sh`, the seven gates, staged output, check cache, test isolation, pre-push hook |
 | [CI](ci.md) | GitHub Actions workflow, what runs when, branch protection |
 | [Release process](release-process.md) | git-flow, versions, changelog, tags, patch delivery |
 | [Documentation guide](documentation-guide.md) | how this documentation is organised; the lead-document rule |

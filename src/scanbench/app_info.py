@@ -9,3 +9,7 @@ APP_ID = "io.github.peddanet.scanbench"
 Wayland compositors match the window to the launcher entry through this ID,
 which the GUI passes to ``QGuiApplication.setDesktopFileName``.
 """
+
+ICON_FILE = "scanbench.svg"
+"""Program icon in the package folder ``scanbench/data``. Installed into the
+icon theme under the application ID (``<APP_ID>.svg``)."""

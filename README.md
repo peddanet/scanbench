@@ -119,7 +119,7 @@ into releases with all quality gates and CI runs
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md). In short: git-flow branches, pull
-requests only, all six quality gates green (`tools/check.sh`).
+requests only, all seven quality gates green (`tools/check.sh`).
 
 ## Licence
 

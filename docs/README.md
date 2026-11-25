@@ -32,10 +32,11 @@ docs/
     printing.md                 CUPS adapter and print dialog
     gui.md                      workbench, tabs, task runner, threads
     coding-standard.md          rules and measurable limits
-    quality-gates.md            tools/check.sh, the six gates, pre-push hook
+    quality-gates.md            tools/check.sh, the seven gates, check cache, test isolation, pre-push hook
     ci.md                       GitHub Actions workflow and branch protection
     release-process.md          git-flow, versions, tags, patch delivery
     documentation-guide.md      how this documentation is organised
+  images/                       social-preview.svg (source) and .png (GitHub preview)
   concept/
     README.md                   lead: concept, revisions, roadmap, decisions
     scanbench-concept.md / .pdf concept revision 1
